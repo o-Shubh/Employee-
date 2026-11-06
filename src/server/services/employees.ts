@@ -110,10 +110,11 @@ function mapUniqueError(e: unknown): never {
 
 async function insertEmployee(ctx: TenantCtx, db: TenantClient, input: z.output<typeof employeeInput>, passwordHash: string) {
   const user = await db.user.create({
-    data: { email: input.email, passwordHash, role: input.role as Role, mustChangePassword: true },
+    data: { tenantId: ctx.tenantId, email: input.email, passwordHash, role: input.role as Role, mustChangePassword: true },
   });
   return db.employee.create({
     data: {
+      tenantId: ctx.tenantId,
       userId: user.id,
       employeeCode: input.employeeCode,
       fullName: input.fullName,
@@ -141,7 +142,7 @@ export async function createEmployee(ctx: TenantCtx, raw: EmployeeInput, env: Re
       await assertValidManager(tx, null, input.managerId);
       const emp = await insertEmployee(ctx, tx, input, passwordHash);
       await audit(ctx, {
-        action: "employee.created", entityType: "Employee", entityId: emp.id, subjectEmployeeId: emp.id, ip: env.ip,
+        action: "employee.created", entityType: "Employee", entityId: emp.id, subjectEmployeeId: emp.id, ip: env.ip, at: env.now,
         after: { ...input },
       }, tx);
       return emp;
@@ -187,7 +188,7 @@ export async function updateEmployee(ctx: TenantCtx, id: string, raw: z.input<ty
       data: { role: input.role as Role, status: input.status === "ACTIVE" ? "ACTIVE" : "DISABLED" },
     });
     await audit(ctx, {
-      action: "employee.updated", entityType: "Employee", entityId: id, subjectEmployeeId: id, ip: env.ip,
+      action: "employee.updated", entityType: "Employee", entityId: id, subjectEmployeeId: id, ip: env.ip, at: env.now,
       before: {
         fullName: before.fullName, designation: before.designation, departmentId: before.departmentId, managerId: before.managerId,
         officeLocationId: before.officeLocationId, status: before.status, role: before.user.role,
@@ -207,7 +208,7 @@ export async function resetEmployeePassword(ctx: TenantCtx, id: string, env: Req
     where: { id: emp.userId },
     data: { passwordHash: await hashPassword(tempPassword), mustChangePassword: true },
   });
-  await audit(ctx, { action: "user.password_reset", entityType: "User", entityId: emp.userId, subjectEmployeeId: id, ip: env.ip });
+  await audit(ctx, { action: "user.password_reset", entityType: "User", entityId: emp.userId, subjectEmployeeId: id, ip: env.ip, at: env.now });
   return { tempPassword };
 }
 
@@ -302,7 +303,7 @@ export async function importEmployeesCsv(ctx: TenantCtx, csvText: string, env: R
         const deptByName = new Map(departments.map((d) => [d.name.toLowerCase(), d.id]));
         for (const p of withPasswords) {
           if (p.department && !deptByName.has(p.department.toLowerCase())) {
-            const d = await tx.department.create({ data: { name: p.department } });
+            const d = await tx.department.create({ data: { tenantId: ctx.tenantId, name: p.department } });
             deptByName.set(p.department.toLowerCase(), d.id);
           }
         }
@@ -326,7 +327,7 @@ export async function importEmployeesCsv(ctx: TenantCtx, csvText: string, env: R
           });
         }
         await audit(ctx, {
-          action: "employee.bulk_imported", entityType: "Employee", ip: env.ip,
+          action: "employee.bulk_imported", entityType: "Employee", ip: env.ip, at: env.now,
           after: { count: out.length, codes: out.map((o) => o.employeeCode) },
         }, tx);
         return out;

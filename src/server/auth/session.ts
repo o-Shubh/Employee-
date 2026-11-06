@@ -73,3 +73,16 @@ export async function requestEnv(employeeId?: string | null): Promise<RequestEnv
     deviceToken: employeeId ? (c.get(deviceCookieName(employeeId))?.value ?? null) : null,
   };
 }
+
+/** For route handlers: tenant context or null (no redirects). Onboarding must be complete. */
+export async function getTenantCtxOrNull(): Promise<TenantCtx | null> {
+  const user = await getCurrentUser();
+  if (!user?.tenantId || !user.tenant || user.mustChangePassword) return null;
+  const ctx: TenantCtx = {
+    tenantId: user.tenantId,
+    tenant: user.tenant,
+    db: forTenant(user.tenantId, prismaUnscoped),
+    actor: { userId: user.id, role: user.role, employeeId: user.employee?.id ?? null },
+  };
+  return (await hasCurrentConsent(ctx)) ? ctx : null;
+}

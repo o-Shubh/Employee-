@@ -20,8 +20,8 @@ export async function createDepartment(ctx: TenantCtx, raw: z.input<typeof depar
   const { name } = departmentInput.parse(raw);
   const exists = await ctx.db.department.findFirst({ where: { name: { equals: name, mode: "insensitive" } } });
   if (exists) throw new AppError("DUPLICATE_NAME");
-  const d = await ctx.db.department.create({ data: { name } });
-  await audit(ctx, { action: "department.created", entityType: "Department", entityId: d.id, ip: env.ip, after: { name } });
+  const d = await ctx.db.department.create({ data: { tenantId: ctx.tenantId, name } });
+  await audit(ctx, { action: "department.created", entityType: "Department", entityId: d.id, ip: env.ip, at: env.now, after: { name } });
   return d;
 }
 
@@ -31,7 +31,7 @@ export async function renameDepartment(ctx: TenantCtx, id: string, raw: z.input<
   const before = await ctx.db.department.findUnique({ where: { id } });
   if (!before) throw new AppError("NOT_FOUND");
   const d = await ctx.db.department.update({ where: { id }, data: { name } });
-  await audit(ctx, { action: "department.renamed", entityType: "Department", entityId: id, ip: env.ip, before: { name: before.name }, after: { name } });
+  await audit(ctx, { action: "department.renamed", entityType: "Department", entityId: id, ip: env.ip, at: env.now, before: { name: before.name }, after: { name } });
   return d;
 }
 
@@ -61,12 +61,12 @@ export async function upsertLocation(ctx: TenantCtx, id: string | null, raw: z.i
     if (!before) throw new AppError("NOT_FOUND");
     const loc = await ctx.db.officeLocation.update({ where: { id }, data });
     await audit(ctx, {
-      action: "location.updated", entityType: "OfficeLocation", entityId: id, ip: env.ip,
+      action: "location.updated", entityType: "OfficeLocation", entityId: id, ip: env.ip, at: env.now,
       before: { name: before.name, cidrs: before.cidrs, active: before.active }, after: { name: loc.name, cidrs: loc.cidrs, active: loc.active },
     });
     return loc;
   }
-  const loc = await ctx.db.officeLocation.create({ data });
-  await audit(ctx, { action: "location.created", entityType: "OfficeLocation", entityId: loc.id, ip: env.ip, after: { name: loc.name, cidrs: loc.cidrs } });
+  const loc = await ctx.db.officeLocation.create({ data: { tenantId: ctx.tenantId, ...data } });
+  await audit(ctx, { action: "location.created", entityType: "OfficeLocation", entityId: loc.id, ip: env.ip, at: env.now, after: { name: loc.name, cidrs: loc.cidrs } });
   return loc;
 }

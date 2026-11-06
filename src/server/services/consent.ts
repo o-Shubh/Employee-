@@ -16,6 +16,7 @@ export async function recordConsent(ctx: TenantCtx, env: RequestEnv) {
   if (await hasCurrentConsent(ctx)) return;
   const rec = await ctx.db.consentRecord.create({
     data: {
+      tenantId: ctx.tenantId,
       userId: ctx.actor.userId,
       noticeVersion: CURRENT_NOTICE_VERSION,
       acceptedAt: env.now,
@@ -25,7 +26,7 @@ export async function recordConsent(ctx: TenantCtx, env: RequestEnv) {
   });
   await audit(ctx, {
     action: "consent.accepted", entityType: "ConsentRecord", entityId: rec.id,
-    subjectEmployeeId: ctx.actor.employeeId, ip: env.ip, after: { noticeVersion: CURRENT_NOTICE_VERSION },
+    subjectEmployeeId: ctx.actor.employeeId, ip: env.ip, at: env.now, after: { noticeVersion: CURRENT_NOTICE_VERSION },
   });
 }
 

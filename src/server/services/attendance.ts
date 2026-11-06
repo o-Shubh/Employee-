@@ -160,7 +160,7 @@ export async function punch(ctx: TenantCtx, raw: PunchInput, env: RequestEnv) {
       entityType: "LogEntry",
       subjectEmployeeId: employeeId,
       reason: gate.reason,
-      ip: env.ip,
+      ip: env.ip, at: env.now,
       after: { attempted: input.type },
     });
     throw new AppError(gate.reason);
@@ -183,6 +183,7 @@ export async function punch(ctx: TenantCtx, raw: PunchInput, env: RequestEnv) {
     const workDate = input.type === "CHECK_IN" ? state.todayKey : state.workDate;
     const created = await tx.logEntry.create({
       data: {
+        tenantId: ctx.tenantId,
         employeeId,
         workDate: dateKeyToDb(workDate),
         type: input.type,
@@ -207,7 +208,7 @@ export async function punch(ctx: TenantCtx, raw: PunchInput, env: RequestEnv) {
         entityType: "LogEntry",
         entityId: created.id,
         subjectEmployeeId: employeeId,
-        ip: env.ip,
+        ip: env.ip, at: env.now,
         after: { type: created.type, breakKind: created.breakKind, note: created.note, occurredAt: created.occurredAt.toISOString(), workDate },
       },
       tx,
@@ -223,7 +224,7 @@ export async function punch(ctx: TenantCtx, raw: PunchInput, env: RequestEnv) {
  * Idle prompt answer "Yes, I was on a break": back-dates a BREAK to when the tab
  * went idle and resumes ON_DUTY now. Only ever initiated by the employee.
  */
-export async function recordIdleBreak(ctx: TenantCtx, raw: z.input<typeof idleBreakInput>, env: RequestEnv) {
+export async function recordIdleBreak(ctx: TenantCtx, raw: { idleSince: Date | string; breakKind: string }, env: RequestEnv) {
   const employeeId = ctx.actor.employeeId;
   if (!employeeId) throw new AppError("NO_EMPLOYEE_PROFILE");
   const input = idleBreakInput.parse(raw);
@@ -241,6 +242,7 @@ export async function recordIdleBreak(ctx: TenantCtx, raw: z.input<typeof idleBr
     if (env.now.getTime() - input.idleSince.getTime() > 12 * 3600_000) throw new AppError("IDLE_BREAK_TOO_OLD");
 
     const common = {
+      tenantId: ctx.tenantId,
       employeeId,
       workDate: dateKeyToDb(state.workDate),
       recordedAt: env.now,
@@ -260,7 +262,7 @@ export async function recordIdleBreak(ctx: TenantCtx, raw: z.input<typeof idleBr
         entityType: "LogEntry",
         entityId: brk.id,
         subjectEmployeeId: employeeId,
-        ip: env.ip,
+        ip: env.ip, at: env.now,
         reason: "Employee confirmed a break when prompted after inactivity",
         after: { breakFrom: input.idleSince.toISOString(), breakTo: env.now.toISOString(), breakKind: input.breakKind, resumeEntryId: resume.id },
       },
@@ -311,7 +313,7 @@ export async function recomputeDay(ctx: TenantCtx, employeeId: string, workDate:
   };
   return db.dayRecord.upsert({
     where: { tenantId_employeeId_workDate: { tenantId: ctx.tenantId, employeeId, workDate: dateKeyToDb(workDate) } },
-    create: { employeeId, workDate: dateKeyToDb(workDate), ...data },
+    create: { tenantId: ctx.tenantId, employeeId, workDate: dateKeyToDb(workDate), ...data },
     update: data,
   });
 }
@@ -338,7 +340,7 @@ export async function certifyDay(ctx: TenantCtx, raw: z.input<typeof certifyInpu
     if (last?.logHash === hash) throw new AppError("ALREADY_CERTIFIED");
 
     const cert = await tx.dayCertification.create({
-      data: { employeeId, workDate: dateKeyToDb(workDate), summary, logHash: hash, certifiedAt: env.now },
+      data: { tenantId: ctx.tenantId, employeeId, workDate: dateKeyToDb(workDate), summary, logHash: hash, certifiedAt: env.now },
     });
     await audit(
       ctx,
@@ -347,7 +349,7 @@ export async function certifyDay(ctx: TenantCtx, raw: z.input<typeof certifyInpu
         entityType: "DayCertification",
         entityId: cert.id,
         subjectEmployeeId: employeeId,
-        ip: env.ip,
+        ip: env.ip, at: env.now,
         after: { workDate, summary, logHash: hash },
       },
       tx,

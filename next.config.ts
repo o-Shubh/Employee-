@@ -5,6 +5,7 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  devIndicators: { position: "top-right" },
   serverExternalPackages: ["@node-rs/argon2"],
   experimental: {
     serverActions: { bodySizeLimit: "2mb" }, // webcam photo at check-in

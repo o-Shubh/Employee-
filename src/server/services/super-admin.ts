@@ -88,7 +88,7 @@ export const planInput = z.object({
   priceMonthlyInr: z.coerce.number().int().min(0),
 });
 
-export async function upsertPlan(ctx: SuperCtx, id: string | null, raw: z.input<typeof planInput>) {
+export async function upsertPlan(ctx: SuperCtx, id: string | null, raw: Record<keyof z.input<typeof planInput>, unknown>) {
   const input = planInput.parse(raw);
   const plan = id ? await db.plan.update({ where: { id }, data: input }) : await db.plan.create({ data: input });
   await platformAudit(ctx, id ? "plan.updated" : "plan.created", "Plan", plan.id, input);

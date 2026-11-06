@@ -1,0 +1,56 @@
+# Local development.
+#   docker compose up            → Postgres (dev + test) and the app on http://localhost:3000
+#   docker compose up -d db db-test   → only the databases; run `npm run dev` on your machine
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: worklog
+      POSTGRES_PASSWORD: worklog
+      POSTGRES_DB: worklog
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U worklog -d worklog"]
+      interval: 3s
+      retries: 20
+
+  # Disposable database for integration tests (data lives in RAM).
+  db-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: worklog
+      POSTGRES_PASSWORD: worklog
+      POSTGRES_DB: worklog_test
+    ports: ["5433:5432"]
+    tmpfs: [/var/lib/postgresql/data]
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://worklog:worklog@db:5432/worklog?schema=public
+      DATABASE_URL_TEST: postgresql://worklog:worklog@db-test:5432/worklog_test?schema=public
+      AUTH_SECRET: dev-only-secret-change-me-0123456789abcdef
+      AUTH_TRUST_HOST: "true"
+      TRUST_PROXY_HOPS: "1"
+      STORAGE_DIR: /app/storage
+      STALE_SHIFT_HOURS: "16"
+      WATCHPACK_POLLING: "true"
+    ports: ["3000:3000"]
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - next_cache:/app/.next
+      - storage:/app/storage
+    command: sh -c "npx prisma migrate deploy && npm run db:seed && npm run dev -- -H 0.0.0.0"
+
+volumes:
+  pgdata:
+  node_modules:
+  next_cache:
+  storage:

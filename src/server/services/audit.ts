@@ -11,12 +11,15 @@ export interface AuditInput {
   after?: Prisma.InputJsonValue;
   reason?: string | null;
   ip?: string | null;
+  /** Event time; defaults to now. Services pass the request time so entry and audit timestamps agree. */
+  at?: Date;
 }
 
 /** Append an audit event (the table rejects UPDATE/DELETE). */
 export async function audit(ctx: TenantCtx, e: AuditInput, db: TenantClient = ctx.db) {
   await db.auditEvent.create({
     data: {
+      tenantId: ctx.tenantId,
       actorUserId: ctx.actor.userId,
       action: e.action,
       entityType: e.entityType,
@@ -26,6 +29,7 @@ export async function audit(ctx: TenantCtx, e: AuditInput, db: TenantClient = ct
       after: e.after,
       reason: e.reason ?? null,
       ip: e.ip ?? null,
+      createdAt: e.at,
     },
   });
 }

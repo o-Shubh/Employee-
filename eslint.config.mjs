@@ -8,6 +8,7 @@ const compat = new FlatCompat({ baseDirectory: __dirname });
 export default [
   { ignores: [".next/**", "node_modules/**", "storage/**", "next-env.d.ts"] },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+  { rules: { "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }] } },
   {
     // Tenant isolation: the unscoped Prisma client may only be imported by an allow-list of files.
     files: ["src/**/*.{ts,tsx}"],

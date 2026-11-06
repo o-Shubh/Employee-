@@ -31,6 +31,7 @@ export async function requestDeviceRegistration(ctx: TenantCtx, raw: z.input<typ
   const token = generateDeviceToken();
   const device = await ctx.db.device.create({
     data: {
+      tenantId: ctx.tenantId,
       employeeId,
       label,
       tokenHash: hashDeviceToken(token),
@@ -40,7 +41,7 @@ export async function requestDeviceRegistration(ctx: TenantCtx, raw: z.input<typ
     },
   });
   await audit(ctx, {
-    action: "device.requested", entityType: "Device", entityId: device.id, subjectEmployeeId: employeeId, ip: env.ip,
+    action: "device.requested", entityType: "Device", entityId: device.id, subjectEmployeeId: employeeId, ip: env.ip, at: env.now,
     after: { label, userAgent: device.userAgent },
   });
   return { deviceId: device.id, token };
@@ -90,7 +91,7 @@ export async function decideDevice(ctx: TenantCtx, raw: z.input<typeof decideDev
   });
   await audit(ctx, {
     action: `device.${status.toLowerCase()}`, entityType: "Device", entityId: deviceId,
-    subjectEmployeeId: device.employeeId, ip: env.ip, reason: note ?? null,
+    subjectEmployeeId: device.employeeId, ip: env.ip, at: env.now, reason: note ?? null,
     before: { status: device.status }, after: { status },
   });
   return updated;

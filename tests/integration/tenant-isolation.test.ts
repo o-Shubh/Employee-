@@ -48,7 +48,7 @@ describe("tenant isolation", () => {
 
   it("creates are stamped with the caller's tenant; foreign tenantId is rejected", async () => {
     const a = forTenant(A.tenant.id, db);
-    const d = await a.department.create({ data: { name: "Ops" } });
+    const d = await a.department.create({ data: { name: "Ops" } as never }) // tenantId injected by the extension;
     expect(d.tenantId).toBe(A.tenant.id);
     await expect(a.department.create({ data: { name: "Sneaky", tenantId: B.tenant.id } })).rejects.toBeInstanceOf(TenantScopeError);
     await expect(a.department.update({ where: { id: d.id }, data: { tenantId: B.tenant.id } })).rejects.toBeInstanceOf(TenantScopeError);

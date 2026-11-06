@@ -1,0 +1,570 @@
+{
+  "shell": {
+    "lightMode": "Light mode",
+    "darkMode": "Dark mode",
+    "menu": "Menu",
+    "logout": "Log out",
+    "cancel": "Cancel",
+    "stillCheckedInTitle": "You're still checked in",
+    "stillCheckedInBody": "Your work timer keeps running until you check out. Check out now, or log out and leave it running.",
+    "logoutAnyway": "Log out without checking out",
+    "checkOutAndLogout": "Check out and log out",
+    "role": {
+      "SUPER_ADMIN": "Platform admin",
+      "COMPANY_ADMIN": "Company admin",
+      "MANAGER": "Manager",
+      "EMPLOYEE": "Employee"
+    }
+  },
+  "nav": {
+    "me": "My work",
+    "team": "Team",
+    "admin": "Administration",
+    "dashboard": "Today",
+    "myLogs": "My logs",
+    "device": "This computer",
+    "privacy": "My data",
+    "teamToday": "Team today",
+    "employees": "Employees",
+    "departments": "Departments",
+    "locations": "Office locations",
+    "devices": "Computers"
+  },
+  "status": {
+    "ON_DUTY": "On duty",
+    "BREAK": "On break",
+    "FIELD_DUTY": "Field duty",
+    "OFF": "Off duty",
+    "breakOf": "{kind} break"
+  },
+  "breakKind": {
+    "LUNCH": "Lunch",
+    "TEA": "Tea",
+    "PERSONAL": "Personal"
+  },
+  "logType": {
+    "CHECK_IN": "Check in",
+    "ON_DUTY": "On duty",
+    "BREAK": "Break",
+    "FIELD_DUTY": "Field duty",
+    "CHECK_OUT": "Check out",
+    "VOID": "Voided"
+  },
+  "punch": {
+    "checkIn": "Check in",
+    "endBreak": "End break",
+    "backOnDuty": "Back on duty",
+    "changeBreak": "Change break",
+    "startBreak": "Take a break",
+    "fieldDuty": "Field duty",
+    "checkOut": "Check out",
+    "breakTitle": "What kind of break?",
+    "fieldTitle": "Go on field duty",
+    "fieldNoteLabel": "Where are you going, and why?",
+    "fieldNotePlaceholder": "Client visit at the Hinjewadi site",
+    "cancel": "Cancel",
+    "startField": "Start field duty",
+    "checkOutTitle": "Check out for the day?",
+    "checkOutConfirm": "Your work timer stops now. You'll be asked for a short summary of your day.",
+    "photoTitle": "Check-in photo"
+  },
+  "photo": {
+    "explain": "Your company asks for a photo at check-in. The camera is used only while this window is open, and only one picture is saved.",
+    "cameraDenied": "Camera access was blocked. Allow the camera for this site in your browser settings, then try again.",
+    "cameraUnavailable": "No camera is available on this computer.",
+    "preview": "Your check-in photo",
+    "cancel": "Cancel",
+    "useAndCheckIn": "Use photo and check in",
+    "take": "Take photo"
+  },
+  "idle": {
+    "title": "Were you on a break?",
+    "body": "There's been no activity in this tab since {since}. If you stepped away, record it as a break. If you were working elsewhere, choose No and nothing changes.",
+    "kindLabel": "Break type",
+    "note": "WorkLog never deducts time on its own. Only you decide.",
+    "no": "No, I was working",
+    "yes": "Yes, record a break"
+  },
+  "widget": {
+    "label": "Your status",
+    "since": "since {time}",
+    "workToday": "Worked today",
+    "breakToday": "Break today",
+    "missedCheckout": "No check-out recorded for {date}. Open My logs to fix it."
+  },
+  "dashboard": {
+    "noProfile": "Your account has no employee profile, so there's nothing to log. Use the admin menu.",
+    "greeting": "Good to see you, {name}",
+    "today": "{date}",
+    "denied": "You don't have access to that page.",
+    "missedCheckout": "You didn't check out on {date}. That day's last stretch isn't counted until it's corrected. <link>Open the day</link>",
+    "certifyTitle": "Summarise and certify your day",
+    "graphTitle": "Today's log",
+    "entriesTitle": "Today's entries",
+    "fullDay": "Full day and audit trail",
+    "noEntries": "Nothing logged yet today. Check in to start your timer.",
+    "currentStatus": "Current status",
+    "inStatusFor": "{duration} so far, since {time}",
+    "checkedOutToday": "You've checked out for today.",
+    "notCheckedIn": "You haven't checked in today.",
+    "worked": "Worked",
+    "onBreak": "Break",
+    "fieldDuty": "Field duty",
+    "firstIn": "First check-in"
+  },
+  "certify": {
+    "done": "Thanks. Your log for {date} is certified.",
+    "summaryLabel": "What did you work on? ({date})",
+    "summaryPlaceholder": "Closed the March vendor reconciliation; reviewed two purchase orders.",
+    "statement": "I certify this log is accurate.",
+    "submit": "Certify log"
+  },
+  "entries": {
+    "source": {
+      "SELF": "Self",
+      "IDLE_PROMPT": "From idle prompt",
+      "CORRECTION": "Correction",
+      "SYSTEM": "System"
+    },
+    "recordedAt": "recorded {time}",
+    "superseded": "Replaced by a correction",
+    "ip": "IP {ip}",
+    "photo": "Photo"
+  },
+  "graph": {
+    "off": "Off duty",
+    "break": "Break",
+    "onDuty": "On duty",
+    "field": "Field",
+    "total": "Total",
+    "title": "Duty status graph for {date}",
+    "unbounded": "No check-out recorded; this stretch isn't counted"
+  },
+  "logs": {
+    "title": "My logs",
+    "titleFor": "Logs: {name}",
+    "description": "Each day's hours, breaks and certification. Open a day to see every entry and change.",
+    "prev": "Previous",
+    "next": "Next",
+    "daysWorked": "Days worked",
+    "totalWork": "Total work",
+    "totalBreak": "Total break",
+    "awaitingCertification": "Awaiting your summary",
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
+    "breakShort": "{time} break",
+    "state": {
+      "CERTIFIED": "Certified",
+      "CLOSED": "Needs summary",
+      "MISSED_CHECKOUT": "No check-out",
+      "OPEN": "In progress"
+    }
+  },
+  "day": {
+    "yourDay": "Your log for this day",
+    "dayOf": "{name} ({code})",
+    "backToMonth": "Back to month",
+    "missedCheckout": "This day has no check-out, so the time after the last entry isn't counted. A correction request (coming in the next release) will let you fix it with your manager's approval.",
+    "anomalies": "Some entries are out of sequence. They're shown as recorded.",
+    "worked": "Worked",
+    "break": "Break",
+    "field": "Field duty",
+    "certification": "Certification",
+    "certified": "Certified",
+    "needsRecertify": "Changed since certified",
+    "notCertified": "Not certified",
+    "graph": "Duty status",
+    "certifyTitle": "Summarise and certify",
+    "summaries": "Day summaries",
+    "certifiedAt": "Certified {time}",
+    "outdated": "Log changed after this",
+    "earlier": "Earlier version",
+    "entries": "Entries as recorded",
+    "entriesNote": "Entries are never edited or deleted. Corrections appear as new entries; replaced ones are struck through.",
+    "noEntries": "Nothing was logged on this day.",
+    "audit": "Audit trail",
+    "noAudit": "No audit events for this day."
+  },
+  "audit": {
+    "ip": "IP {ip}",
+    "details": "Details",
+    "reason": {
+      "NO_OFFICE_NETWORK": "No office network is configured for you yet. Ask your administrator to add your office location.",
+      "IP_NOT_ALLOWED": "You're not on the office network. Check in from your office computer.",
+      "DEVICE_NOT_REGISTERED": "This computer isn't registered for you. Register it under This computer, then ask your administrator to approve it.",
+      "DEVICE_PENDING": "This computer is waiting for administrator approval.",
+      "DEVICE_REVOKED": "This computer's registration was rejected or revoked. Register it again or use your approved computer.",
+      "BAD_PASSWORD": "Wrong password",
+      "ACCOUNT_OR_TENANT_DISABLED": "Account or company disabled"
+    },
+    "action": {
+      "attendance": {
+        "check_in": "Checked in",
+        "on_duty": "Back on duty",
+        "break": "Started a break",
+        "field_duty": "Started field duty",
+        "check_out": "Checked out",
+        "denied": "Status change blocked",
+        "idle_break": "Break recorded from idle prompt"
+      },
+      "day": {
+        "certified": "Day certified",
+        "recertified": "Day certified again"
+      },
+      "device": {
+        "requested": "Computer registration requested",
+        "approved": "Computer approved",
+        "rejected": "Computer rejected",
+        "revoked": "Computer revoked"
+      },
+      "department": {
+        "created": "Department created",
+        "renamed": "Department renamed"
+      },
+      "location": {
+        "created": "Office location created",
+        "updated": "Office location updated"
+      },
+      "consent": {
+        "accepted": "Privacy notice accepted"
+      },
+      "employee": {
+        "created": "Employee created",
+        "updated": "Employee details changed",
+        "bulk_imported": "Employees imported"
+      },
+      "user": {
+        "password_reset": "Password reset by admin",
+        "password_changed": "Password changed"
+      },
+      "auth": {
+        "login": "Signed in",
+        "login_failed": "Sign-in failed"
+      },
+      "privacy": {
+        "exported": "Personal data downloaded"
+      },
+      "photo": {
+        "viewed": "Check-in photo viewed"
+      }
+    }
+  },
+  "device": {
+    "title": "This computer",
+    "description": "You can check in only from a computer your administrator has approved, on the office network.",
+    "thisApproved": "This computer ({label}) is approved. You can check in from here.",
+    "thisPending": "This computer ({label}) is waiting for administrator approval.",
+    "thisRevoked": "This computer's registration was rejected or revoked.",
+    "registerTitle": "Register this computer",
+    "registerHelp": "Give this computer a name you'll recognise. Your administrator will see the name, browser and network before approving it.",
+    "myDevices": "Your computers",
+    "none": "You haven't registered a computer yet.",
+    "label": "Name",
+    "status": "Status",
+    "requested": "Requested",
+    "lastUsed": "Last used",
+    "thisComputer": "(this one)",
+    "statusValue": {
+      "PENDING": "Waiting for approval",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected",
+      "REVOKED": "Revoked"
+    },
+    "labelField": "Computer name",
+    "labelPlaceholder": "Desk 14, Finance floor",
+    "register": "Request approval"
+  },
+  "privacy": {
+    "title": "My data",
+    "description": "Everything WorkLog records about you, and every change made to it.",
+    "download": "Download my data",
+    "recorded": "What WorkLog records",
+    "never": "What WorkLog never records",
+    "recordedItems": [
+      "Your name, employee code, email, role, department, manager and office",
+      "Each status change you make, with its time, the network address and the computer used",
+      "Your check-in photo, if your company requires one",
+      "Your daily summaries and certifications",
+      "Sign-ins and changes made to your account"
+    ],
+    "neverItems": [
+      "Keystrokes or what you type",
+      "Screenshots or screen recordings",
+      "Websites or apps you use",
+      "Your location outside the office network",
+      "Camera or microphone outside the check-in photo"
+    ],
+    "consents": "Privacy notices you accepted",
+    "consentLine": "Version {version}, accepted {time}",
+    "trail": "Audit trail",
+    "trailNote": "The 200 most recent events about you. The download includes all of them.",
+    "trailEmpty": "No events yet."
+  },
+  "team": {
+    "title": "Team today",
+    "descriptionManager": "Your direct reports' status right now.",
+    "descriptionAdmin": "Everyone's status right now.",
+    "empty": "No one reports to you yet.",
+    "employee": "Employee",
+    "status": "Status",
+    "since": "Since",
+    "firstIn": "First in",
+    "worked": "Worked",
+    "break": "Break",
+    "viewLogs": "View logs",
+    "missedCheckout": "missed check-out"
+  },
+  "auth": {
+    "loginTitle": "Sign in",
+    "loginSubtitle": "Use the work email your administrator registered.",
+    "email": "Email",
+    "password": "Password",
+    "signingIn": "Signing in…",
+    "signIn": "Sign in",
+    "changePasswordTitle": "Set a new password",
+    "changePasswordForced": "You're signing in with a temporary password. Choose your own to continue.",
+    "changePasswordSubtitle": "Choose a new password.",
+    "currentPassword": "Current (or temporary) password",
+    "newPassword": "New password",
+    "passwordRules": "At least 10 characters, with a letter and a number.",
+    "confirmPassword": "Confirm new password",
+    "savePassword": "Save password"
+  },
+  "consent": {
+    "title": "Before you start: how your data is used",
+    "intro": "{company} uses WorkLog to keep attendance records. This notice explains what's recorded and your rights under India's Digital Personal Data Protection Act, 2023.",
+    "collect": {
+      "title": "What's recorded",
+      "body": "Your profile (name, employee code, email, role, department, manager, office), each status change you make with its time, network address and computer, your daily summaries, and a check-in photo if {company} requires one."
+    },
+    "notCollect": {
+      "title": "What's never recorded",
+      "body": "No keystrokes, screenshots, screen recording, browsing history or location tracking. The idle prompt only notices that this tab hasn't been used. It never records what you do."
+    },
+    "purpose": {
+      "title": "Why",
+      "body": "To record working hours, breaks and leave, so they can be approved and paid correctly. The data isn't used for any other purpose."
+    },
+    "access": {
+      "title": "Who can see it",
+      "body": "You, your reporting manager and {company}'s administrators. WorkLog staff access it only to provide support. Every access to a check-in photo by someone else is logged."
+    },
+    "retention": {
+      "title": "How long it's kept",
+      "body": "Attendance records are kept as long as {company} must keep them by law. Check-in photos are deleted after {days} days."
+    },
+    "rights": {
+      "title": "Your rights",
+      "body": "You can see everything recorded about you and download it at any time from My data. You can ask for corrections, and raise a grievance with {company}."
+    },
+    "grievance": {
+      "title": "Grievances",
+      "fallback": "Contact {company}'s HR or administration team."
+    },
+    "version": "Notice version {version}",
+    "accept": "I have read this notice and agree"
+  },
+  "admin": {
+    "employees": {
+      "title": "Employees",
+      "description": "Add people, set their reporting manager and office, and manage access.",
+      "import": "Import from CSV",
+      "search": "Search by name, code or email",
+      "name": "Name",
+      "role": "Role",
+      "department": "Department",
+      "manager": "Reports to",
+      "location": "Office",
+      "status": "Status",
+      "anyLocation": "Any office",
+      "active": "Active",
+      "inactive": "Inactive",
+      "addTitle": "Add an employee",
+      "add": "Add employee",
+      "created": "Added {email}. Temporary password: {password}. Share it privately; they'll set their own at first sign-in.",
+      "passwordReset": "New temporary password: {password}. Share it privately.",
+      "code": "Employee code",
+      "email": "Work email",
+      "emailHint": "They sign in with this address.",
+      "designation": "Designation",
+      "none": "None",
+      "locationHint": "Check-in is allowed only from this office's network.",
+      "joinedOn": "Joining date",
+      "viewLogs": "View logs",
+      "editTitle": "Details",
+      "save": "Save changes",
+      "saved": "Changes saved.",
+      "resetTitle": "Password",
+      "resetHelp": "Creates a temporary password. They'll have to choose a new one at next sign-in.",
+      "reset": "Reset password",
+      "history": "Change history",
+      "noHistory": "No changes recorded."
+    },
+    "import": {
+      "title": "Import employees",
+      "description": "Add many people at once. If any row has a problem, nothing is imported.",
+      "formatTitle": "File format",
+      "formatHelp": "A CSV with a header row. employee_code, full_name and email are required. role is EMPLOYEE, MANAGER or COMPANY_ADMIN. manager_code can refer to someone in the same file. Missing departments are created; office locations must already exist.",
+      "uploadTitle": "Upload",
+      "file": "CSV file",
+      "importing": "Importing…",
+      "submit": "Import",
+      "hasErrors": "{count, plural, one {# problem} other {# problems}} found. Nothing was imported. Fix the file and upload it again.",
+      "row": "Row",
+      "column": "Column",
+      "problem": "Problem",
+      "done": "{count, plural, one {# employee} other {# employees}} imported. Share each temporary password privately.",
+      "code": "Code",
+      "email": "Email",
+      "tempPassword": "Temporary password"
+    },
+    "departments": {
+      "title": "Departments",
+      "description": "Group employees for reports and filters.",
+      "list": "Departments",
+      "empty": "No departments yet.",
+      "rename": "Rename",
+      "name": "Department name",
+      "count": "{count, plural, one {# person} other {# people}}",
+      "add": "Add department"
+    },
+    "locations": {
+      "title": "Office locations",
+      "description": "Employees can check in only from these networks.",
+      "noneWarning": "No office locations yet, so nobody can check in. Add your office network below.",
+      "inactive": "inactive",
+      "assigned": "{count, plural, one {# employee} other {# employees}} assigned",
+      "save": "Save location",
+      "saved": "Location saved.",
+      "addTitle": "Add a location",
+      "add": "Add location",
+      "empty": "Add your first office location.",
+      "name": "Name",
+      "address": "Address",
+      "cidrs": "Allowed networks",
+      "cidrsHint": "One per line, e.g. 203.0.113.0/24 or a single public IP. Ask IT for your office's public IP range.",
+      "active": "Active"
+    },
+    "devices": {
+      "title": "Computers",
+      "description": "Approve the office computers employees may check in from.",
+      "pending": "Waiting for approval ({count})",
+      "noPending": "No requests waiting.",
+      "requestedFrom": "Requested {time} from {ip}",
+      "approve": "Approve",
+      "reject": "Reject",
+      "reason": "Reason (optional)",
+      "all": "All computers",
+      "none": "No decided requests yet.",
+      "employee": "Employee",
+      "device": "Computer",
+      "status": "Status",
+      "lastUsed": "Last used",
+      "revoke": "Revoke"
+    }
+  },
+  "super": {
+    "brand": "WorkLog platform",
+    "tenants": "Companies",
+    "plans": "Plans",
+    "logout": "Log out",
+    "created": "Company created. Admin {email} has temporary password {password}.",
+    "tenantsTitle": "Companies",
+    "tenantsDescription": "Each company's data is fully isolated from the others.",
+    "company": "Company",
+    "plan": "Plan",
+    "employees": "Employees",
+    "status": "Status",
+    "createdAt": "Created",
+    "change": "Change",
+    "active": "Active",
+    "suspended": "Suspended",
+    "suspend": "Suspend",
+    "reactivate": "Reactivate",
+    "newTenant": "Add a company",
+    "createTenant": "Create company",
+    "slug": "Company ID",
+    "slugHint": "Lower-case letters, numbers and dashes.",
+    "timezone": "Time zone",
+    "adminName": "Administrator name",
+    "adminEmail": "Administrator email",
+    "planCode": "Code",
+    "planName": "Name",
+    "maxEmployees": "Employee limit",
+    "price": "Monthly price (₹)",
+    "plansTitle": "Plans",
+    "plansDescription": "Employee limits per plan.",
+    "planWithTenants": "{name} ({count, plural, one {# company} other {# companies}})",
+    "save": "Save",
+    "saved": "Saved.",
+    "newPlan": "Add a plan",
+    "createPlan": "Create plan"
+  },
+  "errors": {
+    "NO_OFFICE_NETWORK": "No office network is configured for you yet. Ask your administrator to add your office location.",
+    "IP_NOT_ALLOWED": "You're not on the office network. Check in from your office computer.",
+    "DEVICE_NOT_REGISTERED": "This computer isn't registered for you. Register it under This computer, then ask your administrator to approve it.",
+    "DEVICE_PENDING": "This computer is waiting for administrator approval.",
+    "DEVICE_REVOKED": "This computer's registration was rejected or revoked. Register it again or use your approved computer.",
+    "UNEXPECTED": "Something went wrong on our side. Try again; if it keeps happening, tell your administrator.",
+    "dismiss": "Dismiss",
+    "INVALID_CREDENTIALS": "Email or password is incorrect.",
+    "RATE_LIMITED": "Too many sign-in attempts. Wait 15 minutes and try again.",
+    "PASSWORD_MISMATCH": "The new passwords don't match.",
+    "WRONG_PASSWORD": "Your current password is incorrect.",
+    "PASSWORD_TOO_SHORT": "Use at least 10 characters.",
+    "PASSWORD_NEEDS_LETTER_AND_DIGIT": "Use at least one letter and one number.",
+    "PASSWORD_SAME": "Choose a password different from the current one.",
+    "NOT_CHECKED_IN": "You haven't checked in yet.",
+    "ALREADY_CHECKED_IN": "You're already checked in.",
+    "INVALID_TRANSITION": "That status change isn't possible right now.",
+    "VALIDATION": "Some fields are missing or invalid. Check the form and try again.",
+    "INVALID": "Missing or invalid value",
+    "PHOTO_REQUIRED": "Your company requires a photo at check-in.",
+    "PHOTO_INVALID": "The photo couldn't be read. Take it again.",
+    "PHOTO_TOO_LARGE": "The photo is too large. Take it again.",
+    "IDLE_BREAK_NOT_ON_DUTY": "You're not on duty, so there's no break to record.",
+    "IDLE_BREAK_BEFORE_STATUS": "The break can't start before your current status began.",
+    "IDLE_BREAK_IN_FUTURE": "The break can't start in the future.",
+    "IDLE_BREAK_TOO_OLD": "That's too long ago to record here. File a correction instead.",
+    "CERTIFY_NOT_CHECKED_OUT": "Check out before writing your day summary.",
+    "CERTIFY_MISSED_CHECKOUT": "This day has no check-out. Request a correction before certifying it.",
+    "ALREADY_CERTIFIED": "You've already certified this day.",
+    "NOTHING_TO_CERTIFY": "There's nothing logged on this day.",
+    "FORBIDDEN": "You don't have access to that.",
+    "NOT_FOUND": "That record doesn't exist.",
+    "NO_EMPLOYEE_PROFILE": "Your account has no employee profile. Ask your administrator to set one up.",
+    "DEVICE_ALREADY_PENDING": "This computer is already waiting for approval.",
+    "DEVICE_ALREADY_APPROVED": "This computer is already approved.",
+    "TOO_MANY_PENDING_DEVICES": "You have three computers waiting for approval. Ask your administrator to review them first.",
+    "INVALID_DEVICE_TRANSITION": "That device has already been decided.",
+    "DUPLICATE_NAME": "That name is already in use.",
+    "CIDR_INVALID": "One of the network ranges isn't valid. Use a format like 203.0.113.0/24.",
+    "CIDR_REQUIRED": "Add at least one network range.",
+    "EMAIL_TAKEN": "That email address is already registered.",
+    "CODE_TAKEN": "That employee code is already in use.",
+    "CODE_INVALID": "Use letters, numbers, dot, dash or slash in the employee code.",
+    "DUPLICATE": "That record already exists.",
+    "DUPLICATE_IN_FILE": "This email appears more than once in the file",
+    "MANAGER_SELF": "An employee can't report to themselves.",
+    "MANAGER_NOT_FOUND": "Reporting manager not found",
+    "MANAGER_ROLE_REQUIRED": "The reporting manager must have the Manager or Company admin role.",
+    "MANAGER_CYCLE": "That would create a reporting loop.",
+    "PLAN_LIMIT": "Your plan's employee limit has been reached. Contact WorkLog to upgrade.",
+    "CANNOT_DEMOTE_SELF": "You can't remove your own admin role or deactivate yourself.",
+    "HAS_DIRECT_REPORTS": "Reassign this person's direct reports before changing them to Employee.",
+    "CSV_EMPTY": "The file is empty.",
+    "CSV_TOO_LARGE": "The file is too large. Import up to 2,000 rows at a time.",
+    "CSV_MISSING_HEADERS": "The file needs the columns employee_code, full_name and email.",
+    "LOCATION_NOT_FOUND": "No office location with this name",
+    "SLUG_TAKEN": "That company ID is already taken.",
+    "TZ_INVALID": "Unknown time zone."
+  }
+}

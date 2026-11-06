@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Logbook palette: ink on cool paper, with one semantic colour per duty status. */
+:root {
+  --paper: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #eef1f5;
+  --ink: #1b2430;
+  --ink-2: #4a5566;
+  --ink-3: #7a8594;
+  --rule: #d6dde6;
+  --rule-strong: #b8c2cf;
+  --primary: #1f3f8f;
+  --primary-ink: #ffffff;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --duty: #1f7a5a;
+  --duty-soft: #e3f3ec;
+  --duty-ink: #ffffff;
+  --break: #a8660f;
+  --break-soft: #fbf0dc;
+  --field: #2b62b0;
+  --field-soft: #e4edf9;
+  --off: #6b7684;
+  --off-soft: #eceff3;
+  color-scheme: light;
+}
+.dark {
+  --paper: #0f141b;
+  --surface: #161d26;
+  --surface-2: #1d2631;
+  --ink: #e6ebf1;
+  --ink-2: #b2bccb;
+  --ink-3: #8390a2;
+  --rule: #2a3542;
+  --rule-strong: #3b4858;
+  --primary: #8fb0ff;
+  --primary-ink: #0f141b;
+  --danger: #f97066;
+  --danger-soft: #3a1a17;
+  --duty: #4cc795;
+  --duty-soft: #13302a;
+  --duty-ink: #0f141b;
+  --break: #f0b04f;
+  --break-soft: #3a2b12;
+  --field: #79a8f0;
+  --field-soft: #17283f;
+  --off: #8b97a7;
+  --off-soft: #222b36;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-primary: var(--primary);
+  --color-primary-ink: var(--primary-ink);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-duty: var(--duty);
+  --color-duty-soft: var(--duty-soft);
+  --color-duty-ink: var(--duty-ink);
+  --color-break: var(--break);
+  --color-break-soft: var(--break-soft);
+  --color-field: var(--field);
+  --color-field-soft: var(--field-soft);
+  --color-off: var(--off);
+  --color-off-soft: var(--off-soft);
+  --font-sans: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body {
+  background: var(--paper);
+  color: var(--ink);
+}
+body {
+  font-feature-settings: "tnum" 0;
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
