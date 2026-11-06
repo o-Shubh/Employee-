@@ -13,6 +13,9 @@ import type { RequestEnv, TenantCtx } from "../src/server/context";
 import { hashPassword } from "../src/server/auth/password";
 import { generateDeviceToken, hashDeviceToken } from "../src/server/security/device-token";
 import { certifyDay, punch, recomputeDay } from "../src/server/services/attendance";
+import { allocateYear, applyLeave, cancelLeave, decideLeave } from "../src/server/services/leave";
+import { decideCorrection, requestCorrection } from "../src/server/services/corrections";
+import { decideOvertime, requestOvertime } from "../src/server/services/overtime";
 import { addDaysKey, dbToDateKey, isoWeekday, localDateKey, localToUtc } from "../src/domain/time";
 
 const prisma = new PrismaClient();
@@ -45,11 +48,23 @@ const SUMMARIES = [
 
 async function main() {
   const existing = await prisma.tenant.findUnique({ where: { slug: "acme" } });
-  if (existing) {
-    console.log("Demo company 'acme' already exists — nothing to do.");
-    console.log("To re-seed, drop and recreate the database yourself, then run `npm run db:migrate && npm run db:seed`.");
-    return;
-  }
+  if (existing) console.log("Phase 1 demo data already present.");
+  else await seedPhase1();
+  await seedPhase2();
+  printAccounts();
+}
+
+function printAccounts() {
+  console.log("");
+  console.log(`All demo accounts use the password: ${DEMO_PASSWORD}`);
+  console.log("  super@worklog.local   platform super admin");
+  console.log("  admin@acme.test       company admin (Priya Nair)");
+  console.log("  manager1@acme.test    manager, Engineering (Rohan Mehta)");
+  console.log("  manager2@acme.test    manager, Operations (Sunita Rao)");
+  console.log("  emp01@acme.test … emp10@acme.test   employees");
+}
+
+async function seedPhase1() {
   const passwordHash = await hashPassword(DEMO_PASSWORD);
 
   // ── Platform ──
@@ -219,13 +234,86 @@ async function main() {
   }
 
   console.log(`Seeded tenant "${tenant.name}" with ${everyone.length} people and ${punches} punches.`);
-  console.log("");
-  console.log(`All demo accounts use the password: ${DEMO_PASSWORD}`);
-  console.log("  super@worklog.local   platform super admin");
-  console.log("  admin@acme.test       company admin (Priya Nair)");
-  console.log("  manager1@acme.test    manager, Engineering (Rohan Mehta)");
-  console.log("  manager2@acme.test    manager, Operations (Sunita Rao)");
-  console.log("  emp01@acme.test … emp10@acme.test   employees");
+}
+
+/** Phase 2: leave types and quotas, plus leave / correction / overtime requests in every state. Idempotent. */
+async function seedPhase2() {
+  const tenant = await prisma.tenant.findUniqueOrThrow({ where: { slug: "acme" } });
+  const db = forTenant(tenant.id, prisma);
+  if ((await db.leaveType.count()) > 0) {
+    console.log("Phase 2 demo data already present.");
+    return;
+  }
+  const people = await db.employee.findMany({ include: { user: true } });
+  const by = (code: string) => people.find((p) => p.employeeCode === code)!;
+  const ctxOf = (code: string): TenantCtx => {
+    const e = by(code);
+    return { tenantId: tenant.id, tenant, db, actor: { userId: e.userId, role: e.user.role, employeeId: e.id } };
+  };
+  const now = new Date();
+  const env: RequestEnv = { now, ip: "10.0.4.200", userAgent: "Seed" };
+  const today = localDateKey(now, TZ);
+  const workday = (from: string, step: number) => {
+    let k = from;
+    do k = addDaysKey(k, step);
+    while (isoWeekday(k) > 5);
+    return k;
+  };
+
+  const [cl, sl, el] = await Promise.all([
+    db.leaveType.create({ data: { tenantId: tenant.id, code: "CL", name: "Casual leave", yearlyQuota: 8 } }),
+    db.leaveType.create({ data: { tenantId: tenant.id, code: "SL", name: "Sick leave", yearlyQuota: 7 } }),
+    db.leaveType.create({ data: { tenantId: tenant.id, code: "EL", name: "Earned leave", yearlyQuota: 15, halfDayAllowed: false } }),
+    db.leaveType.create({ data: { tenantId: tenant.id, code: "LWP", name: "Leave without pay", tracksBalance: false, paid: false } }),
+  ]);
+  const year = Number(today.slice(0, 4));
+  await allocateYear(ctxOf("A001"), year, env);
+
+  const leave = async (code: string, typeId: string, start: string, end: string, reason: string, extra: { halfDayEnd?: boolean } = {}) =>
+    applyLeave(ctxOf(code), { leaveTypeId: typeId, startDate: start, endDate: end, reason, halfDayEnd: extra.halfDayEnd ?? false }, env);
+
+  // Approved, in the past
+  const past = workday(today, -12);
+  const l1 = await leave("E001", cl!.id, past, workday(past, 1), "Cousin's wedding in Jaipur");
+  await decideLeave(ctxOf("M001"), l1.id, { decision: "APPROVE", comment: "Have a good time" }, env);
+  // Approved, today (shows "On leave" on the team board)
+  const l2 = await leave("E009", sl!.id, today, today, "Fever, doctor advised rest");
+  await decideLeave(ctxOf("M002"), l2.id, { decision: "APPROVE", comment: "Get well soon" }, env);
+  // Pending
+  await leave("E002", el!.id, workday(today, 7), workday(workday(today, 7), 2), "Family trip to Coorg");
+  await leave("E004", sl!.id, workday(today, 1), workday(today, 1), "Dental appointment");
+  await leave("M001", cl!.id, workday(today, 10), workday(today, 10), "Child's school annual day");
+  // Rejected and cancelled
+  const l3 = await leave("E008", cl!.id, workday(today, 3), workday(today, 4), "Personal work");
+  await decideLeave(ctxOf("M002"), l3.id, { decision: "REJECT", comment: "Vendor audit those days; please pick the following week" }, env);
+  const l4 = await leave("E006", cl!.id, workday(today, 15), workday(today, 15), "Bank work");
+  await cancelLeave(ctxOf("E006"), l4.id, {}, env);
+
+  // Corrections: the missed check-out (pending), and an approved check-in fix.
+  const missed = await db.dayRecord.findFirst({ where: { employeeId: by("E003").id, state: "MISSED_CHECKOUT" } });
+  if (missed) {
+    const key = missed.workDate.toISOString().slice(0, 10);
+    await requestCorrection(ctxOf("E003"), {
+      workDate: key, reason: "Forgot to check out; I left at 18:10 (security register shows the exit).",
+      ops: [{ op: "ADD", type: "CHECK_OUT", occurredAt: localToUtc(key, "18:10", TZ).toISOString() }],
+    }, env);
+  }
+  const fixDay = workday(today, -3);
+  const fixIn = await db.logEntry.findFirst({ where: { employeeId: by("E007").id, workDate: new Date(`${fixDay}T00:00:00Z`), type: "CHECK_IN" } });
+  if (fixIn) {
+    const c = await requestCorrection(ctxOf("E007"), {
+      workDate: fixDay, reason: "Biometric queue at the gate; I was at my desk by 09:00.",
+      ops: [{ op: "CHANGE_TIME", entryId: fixIn.id, occurredAt: localToUtc(fixDay, "09:00", TZ).toISOString() }],
+    }, env);
+    await decideCorrection(ctxOf("M002"), c.id, { decision: "APPROVE", comment: "Confirmed with the gate log" }, env);
+  }
+
+  // Overtime
+  await requestOvertime(ctxOf("E005"), { workDate: workday(today, -1), minutes: 120, reason: "Production deploy window ran late" }, env);
+  const ot = await requestOvertime(ctxOf("E007"), { workDate: workday(today, -2), minutes: 90, reason: "Warehouse stock count" }, env);
+  await decideOvertime(ctxOf("M002"), ot.id, { decision: "APPROVE", comment: "Approved per stock-count plan" }, env);
+
+  console.log("Seeded Phase 2: 4 leave types, quotas for " + year + ", and leave / correction / overtime requests in every state.");
 }
 
 main()

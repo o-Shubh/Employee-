@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { requireUser } from "@/server/auth/session";
 import { getMonth } from "@/server/services/attendance";
+import { leaveInRange } from "@/server/services/leave";
 import { AppError } from "@/server/errors";
 import { dbToDateKey, isoWeekday, localDateKey, monthDateKeys } from "@/domain/time";
 import { formatHm } from "@/domain/timeline";
@@ -36,8 +37,22 @@ export default async function LogsPage({ searchParams }: { searchParams: Promise
     throw e;
   }
   const records = await getMonth(ctx, viewed.employee.id, y, m, now);
+  const monthKeys = monthDateKeys(y, m);
+  const leaves = await leaveInRange(ctx, monthKeys[0]!, monthKeys.at(-1)!, [viewed.employee.id], ["APPROVED", "PENDING"]);
+  const weeklyOff = new Set(ctx.tenant.weeklyOffDays);
+  const leaveOn = (key: string) => {
+    if (weeklyOff.has(isoWeekday(key))) return null;
+    const l = leaves.find((x) => dbToDateKey(x.startDate) <= key && key <= dbToDateKey(x.endDate));
+    if (!l) return null;
+    const half = (l.halfDayStart && key === dbToDateKey(l.startDate)) || (l.halfDayEnd && key === dbToDateKey(l.endDate));
+    return { code: l.leaveType.code, pending: l.status === "PENDING", half };
+  };
+  const leaveDays = monthKeys.reduce((a, k) => {
+    const l = leaveOn(k);
+    return a + (l && !l.pending ? (l.half ? 0.5 : 1) : 0);
+  }, 0);
   const byDate = new Map(records.map((r) => [dbToDateKey(r.workDate), r]));
-  const days = monthDateKeys(y, m);
+  const days = monthKeys;
   const leading = isoWeekday(days[0]!) - 1;
 
   const q = (month: string) => `/logs?month=${month}${sp.employee ? `&employee=${sp.employee}` : ""}`;
@@ -70,11 +85,12 @@ export default async function LogsPage({ searchParams }: { searchParams: Promise
         }
       />
 
-      <dl className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-rule bg-rule sm:grid-cols-4">
+      <dl className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-rule bg-rule sm:grid-cols-5">
         {[
           [t("daysWorked"), String(totals.days)],
           [t("totalWork"), formatHm(totals.work)],
           [t("totalBreak"), formatHm(totals.brk)],
+          [t("leaveDays"), String(leaveDays)],
           [t("awaitingCertification"), String(totals.uncertified)],
         ].map(([k, v]) => (
           <div key={k} className="bg-surface px-4 py-3">
@@ -96,6 +112,7 @@ export default async function LogsPage({ searchParams }: { searchParams: Promise
           ))}
           {days.map((key) => {
             const r = byDate.get(key);
+            const lv = leaveOn(key);
             const weekend = isoWeekday(key) >= 6;
             const future = key > todayKey;
             return (
@@ -105,13 +122,21 @@ export default async function LogsPage({ searchParams }: { searchParams: Promise
                 aria-disabled={future}
                 className={cn(
                   "flex min-h-24 flex-col rounded-md border border-rule border-l-4 bg-surface p-2 text-sm hover:border-rule-strong",
-                  r ? STATE_STYLE[r.state] : "border-l-rule",
+                  r ? STATE_STYLE[r.state] : lv && !lv.pending ? "border-l-rule-strong" : "border-l-rule",
                   weekend && !r && "bg-surface-2",
                   future && "pointer-events-none opacity-50",
                   key === todayKey && "ring-1 ring-primary",
                 )}
               >
-                <span className="tabular text-xs font-medium text-ink-2">{Number(key.slice(8))}</span>
+                <span className="flex items-center justify-between gap-1">
+                  <span className="tabular text-xs font-medium text-ink-2">{Number(key.slice(8))}</span>
+                  {lv && (
+                    <span className={cn("rounded px-1 text-[11px] font-medium", lv.pending ? "border border-dashed border-rule-strong text-ink-3" : "bg-surface-2 text-ink-2")}>
+                      {lv.half ? t("halfLeave", { code: lv.code }) : lv.code}
+                      {lv.pending ? ` ${t("pendingShort")}` : ""}
+                    </span>
+                  )}
+                </span>
                 {r && (
                   <span className="mt-auto space-y-0.5">
                     <span className="tabular block font-semibold">{formatHm(r.workMin)}</span>

@@ -30,7 +30,9 @@ export function DashboardStatus() {
             <p className="mt-1 text-sm text-ink-2">
               {snapshot.status !== "OFF" && snapshot.statusSince
                 ? t("inStatusFor", { duration: formatDuration(live.inStatus), time: fmt(snapshot.statusSince) })
-                : snapshot.firstInAt
+                : snapshot.leaveToday && !snapshot.firstInAt
+                  ? t("onLeaveToday", { type: snapshot.leaveToday })
+                  : snapshot.firstInAt
                   ? t("checkedOutToday")
                   : t("notCheckedIn")}
             </p>

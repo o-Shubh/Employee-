@@ -1,7 +1,9 @@
-import clsx from "clsx";
+import clsx, { type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 import type { ComponentProps, ReactNode } from "react";
 
-export const cn = clsx;
+/** Join classes; later Tailwind utilities win over conflicting earlier ones (e.g. a w-56 override beats w-full). */
+export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 
 type Variant = "primary" | "duty" | "secondary" | "ghost" | "danger";
 const buttonStyles: Record<Variant, string> = {

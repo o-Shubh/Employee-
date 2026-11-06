@@ -19,6 +19,11 @@ export const TENANT_MODELS = new Set([
   "DayRecord",
   "DayCertification",
   "AuditEvent",
+  "LeaveType",
+  "LeaveLedger",
+  "LeaveRequest",
+  "CorrectionRequest",
+  "OvertimeRequest",
 ]);
 /** Global reference data tenants may read but never write. */
 const READ_ONLY_GLOBAL = new Set(["Plan"]);

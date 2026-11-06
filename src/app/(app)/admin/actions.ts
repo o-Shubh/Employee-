@@ -8,6 +8,7 @@ import type { FormState } from "@/components/action-form";
 import { createEmployee, importEmployeesCsv, resetEmployeePassword, updateEmployee } from "@/server/services/employees";
 import { createDepartment, renameDepartment, upsertLocation } from "@/server/services/org";
 import { decideDevice } from "@/server/services/devices";
+import { adjustBalance, allocateYear, saveLeaveType } from "@/server/services/leave";
 
 async function adminCtx() {
   const ctx = await requireUser({ roles: ["COMPANY_ADMIN"] });
@@ -103,4 +104,35 @@ export async function decideDeviceAction(deviceId: string, decision: "APPROVE" |
   if (!res.ok) return { ok: false, code: res.code };
   revalidatePath("/admin/devices");
   return { ok: true };
+}
+
+// ─── Phase 2: leave admin ───
+
+export async function saveLeaveTypeAction(id: string | null, _p: FormState, f: FormData): Promise<FormState> {
+  const { ctx, env } = await adminCtx();
+  const res = await run(() =>
+    saveLeaveType(ctx, id, {
+      code: s(f, "code"), name: s(f, "name"), yearlyQuota: s(f, "yearlyQuota") || "0",
+      tracksBalance: f.get("tracksBalance") === "on", paid: f.get("paid") === "on", halfDayAllowed: f.get("halfDayAllowed") === "on", active: f.get("active") === "on",
+    } as never, env),
+  );
+  revalidatePath("/admin/leave-types");
+  return res.ok ? { ok: true } : { ok: false, code: res.code };
+}
+
+export async function allocateYearAction(_p: FormState, f: FormData): Promise<FormState> {
+  const { ctx, env } = await adminCtx();
+  const t = await getTranslations("admin.leaveTypes");
+  const res = await run(() => allocateYear(ctx, Number(s(f, "year")), env));
+  revalidatePath("/admin/leave-types");
+  return res.ok ? { ok: true, message: t("allocated", { count: res.data.created }) } : { ok: false, code: res.code };
+}
+
+export async function adjustBalanceAction(_p: FormState, f: FormData): Promise<FormState> {
+  const { ctx, env } = await adminCtx();
+  const res = await run(() =>
+    adjustBalance(ctx, { employeeId: s(f, "employeeId"), leaveTypeId: s(f, "leaveTypeId"), year: s(f, "year"), days: s(f, "days"), reason: s(f, "reason") } as never, env),
+  );
+  revalidatePath("/admin/leave-types");
+  return res.ok ? { ok: true } : { ok: false, code: res.code };
 }

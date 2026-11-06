@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { requireUser } from "@/server/auth/session";
 import { getStatusSnapshot } from "@/server/services/status";
+import { pendingApprovalCount } from "@/server/services/team";
 import { StatusProvider } from "@/components/status/status-provider";
 import { StatusWidget } from "@/components/status/status-widget";
 import { IdlePrompt } from "@/components/status/idle-prompt";
@@ -16,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const snapshot: StatusSnapshot = (await getStatusSnapshot(ctx, now)) ?? {
     status: "OFF", statusSince: null, currentBreakKind: null, workSeconds: 0, breakSeconds: 0, fieldSeconds: 0, firstInAt: null,
     asOf: now.toISOString(), workDate: "", timezone: ctx.tenant.timezone, idleTimeoutMin: ctx.tenant.idleTimeoutMin,
-    requirePhoto: false, missedCheckoutOn: null, certifyDate: null,
+    requirePhoto: false, missedCheckoutOn: null, certifyDate: null, leaveToday: null,
   };
 
   const role = ctx.actor.role;
@@ -26,12 +27,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       items: [
         { href: "/dashboard", label: "dashboard" },
         { href: "/logs", label: "myLogs" },
+        { href: "/leave", label: "leave" },
+        { href: "/requests", label: "requests" },
         { href: "/device", label: "device" },
         { href: "/privacy", label: "privacy" },
       ],
     },
   ];
-  if (role === "MANAGER" || role === "COMPANY_ADMIN") groups.push({ label: "team", items: [{ href: "/team", label: "teamToday" }] });
+  if (role === "MANAGER" || role === "COMPANY_ADMIN") {
+    const pending = await pendingApprovalCount(ctx);
+    groups.push({ label: "team", items: [{ href: "/team", label: "teamToday" }, { href: "/approvals", label: "approvals", badge: pending }] });
+  }
   if (role === "COMPANY_ADMIN") {
     groups.push({
       label: "admin",
@@ -40,6 +46,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         { href: "/admin/departments", label: "departments" },
         { href: "/admin/locations", label: "locations" },
         { href: "/admin/devices", label: "devices" },
+        { href: "/admin/leave-types", label: "leaveTypes" },
+        { href: "/admin/audit", label: "audit" },
       ],
     });
   }
@@ -72,7 +80,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </div>
           </div>
         </aside>
-        <main className="min-w-0 flex-1 px-4 pb-48 pt-6 md:px-8 md:pt-8">
+        <main className="min-w-0 flex-1 px-4 pb-24 pt-6 md:px-8 md:pt-8">
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
       </div>

@@ -17,6 +17,8 @@ export interface StatusSnapshot {
   missedCheckoutOn: string | null;
   /** A closed day awaiting the employee's summary + certification */
   certifyDate: string | null;
+  /** Approved leave covering today (type name), if any */
+  leaveToday: string | null;
 }
 
 /** Live totals at `nowMs`, extrapolated from the snapshot without another server call. */

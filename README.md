@@ -2,7 +2,7 @@
 
 A self-service digital work logbook for corporate and government employees, modelled on trucking ELD logbooks. Employees mark their own attendance, breaks and field duty from their office computer. Managers monitor, and company admins configure. It's multi-tenant and sold to many companies.
 
-> Status: **Phase 1 done**: auth, tenants, employees, check-in/break/field/check-out with IP + device checks, status widget, idle prompt, day certification, My Logs. See [docs/PLAN.md](docs/PLAN.md) for the full plan.
+> Status: **Phase 2 done**. Phase 1 covered auth, tenants, employees, check-in/break/field/check-out with IP + device checks, the status widget, idle prompt, day certification and My Logs. Phase 2 adds leave (ledger-based balances), corrections, overtime, the manager approval queue, a live team board, the company audit log, and a ZIP data export. See [docs/PLAN.md](docs/PLAN.md) for the full plan.
 
 ## Run it locally
 
@@ -21,7 +21,7 @@ cp .env.example .env            # then set AUTH_SECRET: openssl rand -base64 32
 docker compose up -d db db-test
 npm install
 npm run db:migrate              # applies migrations (incl. append-only triggers)
-npm run db:seed                 # demo company with ~4 weeks of history
+npm run db:seed                 # demo company with ~4 weeks of history; safe to re-run (adds missing phases only)
 npm run dev                     # http://localhost:3000
 ```
 
@@ -45,16 +45,20 @@ All accounts use the password `WorkLog@2026`. Each person sees the privacy notic
 
 The seeded office network allows loopback and private LAN ranges, so localhost works. Some things to look at:
 
-- `emp03` has a day with no check-out in October, under My logs.
-- Six employees are live right now on the managers' **Team today**.
+- `manager1@acme.test` → **Approvals**: pending leave, overtime, and `emp03`'s correction adding the missing check-out.
+- `admin@acme.test` → **Approvals**: `manager1`'s own leave (managers can't approve their own requests).
+- `manager2@acme.test` → **Team board**: people on duty, on break, on field duty, and one on sick leave today.
+- `emp07` has a day corrected and approved. Open it in My logs: the original check-in is struck through and the correction is listed.
+- `emp01`: open a past day and choose **Request a correction**.
+- `emp02`: **Leave** shows balances; the apply form previews how many days a request uses.
 - Several days are waiting for a summary.
 
 ### Tests
 
 ```bash
 npm test                    # everything
-npm run test:unit           # pure logic: hours, status machine, tz, CIDR, CSV
-npm run test:integration    # against DATABASE_URL_TEST: tenant isolation, append-only, punch flows
+npm run test:unit           # pure logic: hours, status machine, tz, CIDR, CSV, leave-day counting, correction simulation
+npm run test:integration    # against DATABASE_URL_TEST: tenant isolation, append-only, punch flows, leave ledger, approvals, corrections
 ```
 
 Integration tests only *apply* migrations to the test DB (never reset it). Each test creates its own uniquely named tenants, which also exercises isolation. The setup refuses to run against a database URL that doesn't contain `test`.
@@ -66,7 +70,10 @@ Also: `npm run lint`, `npm run typecheck`, `npm run build`.
 | Concern | Where / how |
 |---|---|
 | Tenant isolation | Composite `(tenantId, id)` foreign keys, so Postgres rejects cross-tenant references. `forTenant()` (`src/server/db/tenant.ts`) is a Prisma extension that ANDs `tenantId` into every query, stamps creates, blocks nested relation writes, and fails closed for unknown models. ESLint forbids importing the unscoped client outside an allow-list. |
-| Append-only history | Postgres triggers reject `UPDATE`/`DELETE` on `LogEntry`, `AuditEvent`, `DayCertification`, `ConsentRecord`. Corrections (Phase 2) insert new rows with `supersedesId`. |
+| Append-only history | Postgres triggers reject `UPDATE`/`DELETE` on `LogEntry`, `AuditEvent`, `DayCertification`, `ConsentRecord`, `LeaveLedger`. An approved correction inserts new `LogEntry` rows (source `CORRECTION`) that point at the originals via `supersedesId`, and a removal is a `VOID` row. |
+| Leave balances | `LeaveLedger` is append-only and the balance is `SUM(days)`: allocations, debits on approval, reversals on cancellation, and admin adjustments. Pending requests reserve days. Days are counted in `src/domain/leave.ts`, which skips weekly offs (tenant setting) and, from Phase 3, holidays. |
+| Approvals | `src/server/services/approval-rights.ts`: the requester's direct manager or a company admin decides. Nobody decides their own request, except a company admin who reports to no one (audited as self-approval). Rejections need a comment. |
+| Corrections | The employee edits a copy of the day. `simulateCorrection()` (`src/domain/corrections.ts`) checks the result is a valid, closed day when it's requested **and again** at approval, in case the day changed meanwhile. |
 | Hours calculation | Pure functions in `src/domain/` (`timeline.ts`, `status-machine.ts`). `DayRecord` is a rebuildable cache. A missed check-out is never auto-closed: the open stretch counts as zero until corrected. |
 | Check-in gate | `checkGate()` in `src/server/services/attendance.ts` checks the office CIDR (`src/domain/cidr.ts`) and an approved device. The device token is an httpOnly cookie, and only its SHA-256 is stored. Denials are audited. |
 | Client IP | `src/server/security/client-ip.ts`: trusts only the right-most `TRUST_PROXY_HOPS` entries of `X-Forwarded-For`. Use `1` for `next dev`/`next start` with no proxy and `2` behind one reverse proxy. **Set this correctly in production**, or the IP check can be spoofed. |
@@ -88,5 +95,6 @@ tests/unit, tests/integration
 
 - Check-in photos use a local-disk storage driver (`STORAGE_DIR`). An S3/MinIO driver and photo retention purging come in Phase 3.
 - Login rate limiting is in-memory, so it's per app instance.
-- A missed check-out can only be fixed through the correction request flow (Phase 2).
-- Leave, corrections, overtime and the approval queue are Phase 2. The rules engine, alerts and reports are Phase 3.
+- There are no holidays yet, so leave counting skips only weekly offs. The holiday calendar, the overtime cap and the other rules arrive with the Phase 3 rules engine.
+- Yearly quotas aren't pro-rated for mid-year joiners; use **Adjust a balance**. Carry-forward is also a manual adjustment for now.
+- No email notifications yet. Approvers see the count badge and the queue. Alerts are Phase 3.

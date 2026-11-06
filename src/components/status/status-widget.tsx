@@ -19,12 +19,12 @@ export function StatusWidget() {
   const tb = useTranslations("breakKind");
   const { snapshot, now } = useStatus();
   const pathname = usePathname();
-  const [open, setOpen] = useState(true);
+  // Starts as a compact bar (status, timer, totals) so it never hides page content;
+  // expanding shows the full panel with actions. The choice is remembered per browser.
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     try {
-      const pref = localStorage.getItem("wl_widget");
-      // Phones start collapsed so the panel doesn't cover the page.
-      setOpen(pref ? pref !== "collapsed" : window.innerWidth >= 640);
+      setOpen(localStorage.getItem("wl_widget") === "open");
     } catch {
       /* storage blocked */
     }
@@ -50,15 +50,32 @@ export function StatusWidget() {
   return (
     <aside
       aria-label={t("label")}
-      className="fixed bottom-4 right-4 z-40 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-rule bg-surface shadow-lg print:hidden"
+      className={cn(
+        "fixed bottom-4 right-4 z-40 overflow-hidden rounded-lg border border-rule bg-surface shadow-lg print:hidden",
+        open ? "w-[min(20rem,calc(100vw-2rem))]" : "w-auto max-w-[calc(100vw-2rem)]",
+      )}
     >
       <div className={cn("h-1", BAR[snapshot.status])} />
-      <button type="button" onClick={toggle} aria-expanded={open} className="flex w-full items-center justify-between gap-3 px-4 pt-3 text-left">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        aria-label={open ? t("collapse") : t("expand")}
+        className={cn("flex w-full items-center justify-between gap-3 px-4 text-left", open ? "pt-3" : "py-2.5")}
+      >
         <span className={cn("text-sm font-semibold", TEXT[snapshot.status])}>
           <span aria-live="polite">{label}</span>
-          {sinceText && <span className="ml-1.5 font-normal text-ink-3">{t("since", { time: sinceText })}</span>}
+          {open && sinceText && <span className="ml-1.5 font-normal text-ink-3">{t("since", { time: sinceText })}</span>}
         </span>
-        <span className="tabular text-sm font-semibold text-ink">{formatDuration(live.inStatus)}</span>
+        {open ? (
+          <span className="tabular text-sm font-semibold text-ink">{formatDuration(live.inStatus)}</span>
+        ) : (
+          <span className="tabular flex items-baseline gap-3 text-xs text-ink-3">
+            {snapshot.status !== "OFF" && <span className="text-sm font-semibold text-ink">{formatDuration(live.inStatus)}</span>}
+            <span>{t("workShort", { time: formatDuration(live.work) })}</span>
+            <span>{t("breakShort", { time: formatDuration(live.brk) })}</span>
+          </span>
+        )}
       </button>
       {open && (
         <div className="space-y-3 px-4 pb-4 pt-2">
@@ -78,10 +95,10 @@ export function StatusWidget() {
               <PunchControls compact />
             </>
           )}
+          {snapshot.leaveToday && snapshot.status === "OFF" && <p className="text-xs text-ink-2">{t("onLeave", { type: snapshot.leaveToday })}</p>}
           {snapshot.missedCheckoutOn && <p className="text-xs text-break">{t("missedCheckout", { date: snapshot.missedCheckoutOn })}</p>}
         </div>
       )}
-      {!open && <div className="pb-3" />}
     </aside>
   );
 }

@@ -38,7 +38,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             {t.rich("missedCheckout", {
               date: fmtDateKey(state.missedCheckoutOn),
               link: (chunks) => (
-                <Link className="font-medium underline" href={`/logs/${state.missedCheckoutOn}`}>
+                <Link className="font-medium underline" href={`/logs/${state.missedCheckoutOn}/correct`}>
                   {chunks}
                 </Link>
               ),

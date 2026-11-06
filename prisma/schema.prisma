@@ -54,6 +54,8 @@ model Tenant {
   idleTimeoutMin        Int          @default(40)
   photoRetentionDays    Int          @default(90)
   grievanceContact      String?
+  /// ISO weekdays that are weekly off (1=Mon … 7=Sun). Policies (Phase 3) can override.
+  weeklyOffDays         Int[]        @default([6, 7])
   createdAt             DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt             DateTime     @updatedAt @db.Timestamptz(3)
 
@@ -67,6 +69,11 @@ model Tenant {
   dayRecords       DayRecord[]
   dayCertifications DayCertification[]
   auditEvents      AuditEvent[]
+  leaveTypes         LeaveType[]
+  leaveLedger        LeaveLedger[]
+  leaveRequests      LeaveRequest[]
+  correctionRequests CorrectionRequest[]
+  overtimeRequests   OvertimeRequest[]
 }
 
 // ───────────────────────────── Identity ─────────────────────────────
@@ -180,6 +187,10 @@ model Employee {
   logEntries        LogEntry[]
   dayRecords        DayRecord[]
   dayCertifications DayCertification[]
+  leaveLedger       LeaveLedger[]
+  leaveRequests     LeaveRequest[]
+  correctionRequests CorrectionRequest[]
+  overtimeRequests  OvertimeRequest[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, userId])
@@ -342,4 +353,140 @@ model AuditEvent {
 
   @@index([tenantId, subjectEmployeeId, createdAt])
   @@index([tenantId, createdAt])
+}
+
+// ───────────────────────────── Phase 2: requests ─────────────────────────────
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model LeaveType {
+  id             String         @id @default(cuid())
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  code           String // e.g. CL, SL, EL
+  name           String
+  /// Days granted per calendar year (0 = no balance, e.g. leave without pay)
+  yearlyQuota    Decimal        @default(0) @db.Decimal(5, 1)
+  /// When false the type is always available (e.g. LWP) and no balance is checked
+  tracksBalance  Boolean        @default(true)
+  paid           Boolean        @default(true)
+  halfDayAllowed Boolean        @default(true)
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(3)
+  ledger         LeaveLedger[]
+  requests       LeaveRequest[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+}
+
+enum LedgerKind {
+  ALLOCATION
+  DEBIT
+  REVERSAL
+  ADJUSTMENT
+  CARRY_FORWARD
+}
+
+/// Append-only. Balance = SUM(days) per employee, type and year.
+/// DEBIT is negative; REVERSAL gives a cancelled leave back.
+model LeaveLedger {
+  id             String        @id @default(cuid())
+  tenantId       String
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employeeId     String
+  employee       Employee      @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  leaveTypeId    String
+  leaveType      LeaveType     @relation(fields: [tenantId, leaveTypeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  year           Int
+  kind           LedgerKind
+  days           Decimal       @db.Decimal(5, 1)
+  leaveRequestId String?
+  leaveRequest   LeaveRequest? @relation(fields: [tenantId, leaveRequestId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  createdById    String
+  reason         String?
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, employeeId, year])
+}
+
+model LeaveRequest {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employeeId      String
+  employee        Employee      @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  leaveTypeId     String
+  leaveType       LeaveType     @relation(fields: [tenantId, leaveTypeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  startDate       DateTime      @db.Date
+  endDate         DateTime      @db.Date
+  /// Leave starts at the second half of startDate
+  halfDayStart    Boolean       @default(false)
+  /// Leave ends after the first half of endDate
+  halfDayEnd      Boolean       @default(false)
+  days            Decimal       @db.Decimal(5, 1)
+  reason          String        @db.VarChar(500)
+  status          RequestStatus @default(PENDING)
+  decidedById     String?
+  decidedAt       DateTime?     @db.Timestamptz(3)
+  decisionComment String?       @db.VarChar(500)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+  ledger          LeaveLedger[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, employeeId, startDate])
+  @@index([tenantId, status])
+}
+
+/// A request to fix a day's log. On approval the changes are applied as NEW
+/// LogEntry rows (source CORRECTION) that supersede the originals.
+model CorrectionRequest {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employeeId      String
+  employee        Employee      @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  workDate        DateTime      @db.Date
+  /// [{op:"ADD",type,occurredAt,breakKind?,note?} | {op:"CHANGE_TIME",entryId,occurredAt} | {op:"REMOVE",entryId}]
+  ops             Json
+  reason          String        @db.VarChar(500)
+  status          RequestStatus @default(PENDING)
+  decidedById     String?
+  decidedAt       DateTime?     @db.Timestamptz(3)
+  decisionComment String?       @db.VarChar(500)
+  appliedEntryIds String[]
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, employeeId, workDate])
+  @@index([tenantId, status])
+}
+
+model OvertimeRequest {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employeeId      String
+  employee        Employee      @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  workDate        DateTime      @db.Date
+  minutes         Int
+  reason          String        @db.VarChar(500)
+  status          RequestStatus @default(PENDING)
+  decidedById     String?
+  decidedAt       DateTime?     @db.Timestamptz(3)
+  decisionComment String?       @db.VarChar(500)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, employeeId, workDate])
+  @@index([tenantId, status])
 }

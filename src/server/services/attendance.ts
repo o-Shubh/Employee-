@@ -88,7 +88,7 @@ export interface ShiftState {
   missedCheckoutOn: DateKey | null;
 }
 
-async function loadDayEntries(db: TenantClient, employeeId: string, workDate: DateKey) {
+export async function loadDayEntries(db: TenantClient, employeeId: string, workDate: DateKey) {
   return db.logEntry.findMany({
     where: { employeeId, workDate: dateKeyToDb(workDate) },
     orderBy: [{ occurredAt: "asc" }, { recordedAt: "asc" }],
@@ -142,7 +142,7 @@ function decodeJpeg(dataUrl: string): Uint8Array {
 }
 
 /** Serialise all punches of one employee so double clicks / two tabs can't race. */
-async function lockEmployee(tx: TenantClient, tenantId: string, employeeId: string) {
+export async function lockEmployee(tx: TenantClient, tenantId: string, employeeId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${tenantId}:${employeeId}`}))`;
 }
 

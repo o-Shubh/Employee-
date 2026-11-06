@@ -6,7 +6,7 @@ import { cn } from "@/components/ui";
 
 export interface NavGroup {
   label: string; // i18n key in "nav"
-  items: { href: string; label: string }[];
+  items: { href: string; label: string; badge?: number }[];
 }
 
 export function Nav({ groups }: { groups: NavGroup[] }) {
@@ -30,7 +30,14 @@ export function Nav({ groups }: { groups: NavGroup[] }) {
                       active ? "bg-surface-2 font-medium text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink",
                     )}
                   >
-                    {t(i.label)}
+                    <span className="flex items-center justify-between gap-2">
+                      {t(i.label)}
+                      {!!i.badge && (
+                        <span className="tabular rounded-full bg-break px-1.5 text-xs font-semibold text-white" aria-label={t("pendingCount", { count: i.badge })}>
+                          {i.badge}
+                        </span>
+                      )}
+                    </span>
                   </Link>
                 </li>
               );
