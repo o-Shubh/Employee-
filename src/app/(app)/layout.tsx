@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { requireUser } from "@/server/auth/session";
 import { getStatusSnapshot } from "@/server/services/status";
 import { pendingApprovalCount } from "@/server/services/team";
+import { unreadCount } from "@/server/services/notifications";
 import { StatusProvider } from "@/components/status/status-provider";
 import { StatusWidget } from "@/components/status/status-widget";
 import { IdlePrompt } from "@/components/status/idle-prompt";
@@ -21,16 +22,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   };
 
   const role = ctx.actor.role;
+  const unread = await unreadCount(ctx);
   const groups: NavGroup[] = [
     {
       label: "me",
       items: [
         { href: "/dashboard", label: "dashboard" },
+        { href: "/notifications", label: "notifications", badge: unread },
         { href: "/logs", label: "myLogs" },
         { href: "/leave", label: "leave" },
         { href: "/requests", label: "requests" },
         { href: "/device", label: "device" },
         { href: "/privacy", label: "privacy" },
+        { href: "/account", label: "account" },
       ],
     },
   ];
@@ -48,6 +52,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         { href: "/admin/devices", label: "devices" },
         { href: "/admin/leave-types", label: "leaveTypes" },
         { href: "/admin/audit", label: "audit" },
+        { href: "/admin/settings", label: "settings" },
       ],
     });
   }

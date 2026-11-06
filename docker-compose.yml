@@ -25,6 +25,11 @@ services:
     ports: ["5433:5432"]
     tmpfs: [/var/lib/postgresql/data]
 
+  # Catches every email in development: open http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports: ["8025:8025", "1025:1025"]
+
   app:
     build:
       context: .
@@ -32,6 +37,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql://worklog:worklog@db:5432/worklog?schema=public
       DATABASE_URL_TEST: postgresql://worklog:worklog@db-test:5432/worklog_test?schema=public
@@ -40,6 +47,9 @@ services:
       TRUST_PROXY_HOPS: "1"
       STORAGE_DIR: /app/storage
       STALE_SHIFT_HOURS: "16"
+      APP_URL: http://localhost:3000
+      SMTP_URL: smtp://mailpit:1025
+      MAIL_FROM: "WorkLog <no-reply@worklog.local>"
       WATCHPACK_POLLING: "true"
     ports: ["3000:3000"]
     volumes:

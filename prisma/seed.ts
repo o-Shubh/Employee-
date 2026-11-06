@@ -18,6 +18,8 @@ import { decideCorrection, requestCorrection } from "../src/server/services/corr
 import { decideOvertime, requestOvertime } from "../src/server/services/overtime";
 import { addDaysKey, dbToDateKey, isoWeekday, localDateKey, localToUtc } from "../src/domain/time";
 
+// Services send notification emails; keep the seed output readable.
+process.env.MAIL_LOG ??= "0";
 const prisma = new PrismaClient();
 const DEMO_PASSWORD = "WorkLog@2026";
 const TZ = "Asia/Kolkata";

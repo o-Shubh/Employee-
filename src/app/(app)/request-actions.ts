@@ -8,6 +8,7 @@ import { applyLeave, cancelLeave, decideLeave, previewLeaveDays } from "@/server
 import { cancelCorrection, decideCorrection, previewCorrection, requestCorrection } from "@/server/services/corrections";
 import { cancelOvertime, decideOvertime, requestOvertime } from "@/server/services/overtime";
 import type { CorrectionOp } from "@/domain/corrections";
+import { createDelegation, revokeDelegation } from "@/server/services/delegations";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const touch = () => {
@@ -99,6 +100,26 @@ export async function decideAction(kind: "leave" | "correction" | "overtime", id
   const res = await run(async () => {
     await fn(ctx, id, input, env);
   });
+  touch();
+  return res.ok ? { ok: true } : { ok: false, code: res.code };
+}
+
+// ─── Delegation ───
+
+export async function createDelegationAction(_p: FormState, f: FormData): Promise<FormState> {
+  const ctx = await requireUser({ roles: ["MANAGER", "COMPANY_ADMIN"] });
+  const env = await requestEnv();
+  const res = await run(() =>
+    createDelegation(ctx, { fromEmployeeId: s(f, "fromEmployeeId") || undefined, toEmployeeId: s(f, "toEmployeeId"), startDate: s(f, "startDate"), endDate: s(f, "endDate"), reason: s(f, "reason") }, env),
+  );
+  touch();
+  return res.ok ? { ok: true } : { ok: false, code: res.code };
+}
+
+export async function revokeDelegationAction(id: string, _p: FormState): Promise<FormState> {
+  const ctx = await requireUser({ roles: ["MANAGER", "COMPANY_ADMIN"] });
+  const env = await requestEnv();
+  const res = await run(() => revokeDelegation(ctx, id, env));
   touch();
   return res.ok ? { ok: true } : { ok: false, code: res.code };
 }

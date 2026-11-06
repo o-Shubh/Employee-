@@ -56,6 +56,10 @@ model Tenant {
   grievanceContact      String?
   /// ISO weekdays that are weekly off (1=Mon … 7=Sun). Policies (Phase 3) can override.
   weeklyOffDays         Int[]        @default([6, 7])
+  /// Field staff may check out from outside the office network (entry is flagged offsite)
+  allowFieldCheckoutAnywhere Boolean  @default(false)
+  /// Pending requests older than this many days are escalated to company admins
+  escalationDays        Int          @default(3)
   createdAt             DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt             DateTime     @updatedAt @db.Timestamptz(3)
 
@@ -74,6 +78,8 @@ model Tenant {
   leaveRequests      LeaveRequest[]
   correctionRequests CorrectionRequest[]
   overtimeRequests   OvertimeRequest[]
+  notifications      Notification[]
+  delegations        ApproverDelegation[]
 }
 
 // ───────────────────────────── Identity ─────────────────────────────
@@ -101,6 +107,10 @@ model User {
   mustChangePassword Boolean    @default(true)
   locale             String?
   lastLoginAt        DateTime?  @db.Timestamptz(3)
+  /// Bumped on password change/reset/disable; sessions carrying an older value are rejected
+  authVersion        Int        @default(0)
+  emailNotifications Boolean    @default(true)
+  notifications      Notification[]
   createdAt          DateTime   @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime   @updatedAt @db.Timestamptz(3)
 
@@ -191,6 +201,8 @@ model Employee {
   leaveRequests     LeaveRequest[]
   correctionRequests CorrectionRequest[]
   overtimeRequests  OvertimeRequest[]
+  delegationsGiven    ApproverDelegation[] @relation("DelegationFrom")
+  delegationsReceived ApproverDelegation[] @relation("DelegationTo")
 
   @@unique([tenantId, id])
   @@unique([tenantId, userId])
@@ -284,6 +296,8 @@ model LogEntry {
   deviceId            String?
   device              Device?     @relation(fields: [tenantId, deviceId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
   photoKey            String?
+  /// Recorded from outside the office network (only allowed by tenant setting, e.g. field check-out)
+  offsite             Boolean     @default(false)
 
   @@unique([tenantId, id])
   @@index([tenantId, employeeId, workDate])
@@ -437,6 +451,7 @@ model LeaveRequest {
   decidedAt       DateTime?     @db.Timestamptz(3)
   decisionComment String?       @db.VarChar(500)
   createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  escalatedAt     DateTime?     @db.Timestamptz(3)
   updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
   ledger          LeaveLedger[]
 
@@ -463,6 +478,7 @@ model CorrectionRequest {
   decisionComment String?       @db.VarChar(500)
   appliedEntryIds String[]
   createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  escalatedAt     DateTime?     @db.Timestamptz(3)
   updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
 
   @@unique([tenantId, id])
@@ -484,9 +500,83 @@ model OvertimeRequest {
   decidedAt       DateTime?     @db.Timestamptz(3)
   decisionComment String?       @db.VarChar(500)
   createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  escalatedAt     DateTime?     @db.Timestamptz(3)
   updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
 
   @@unique([tenantId, id])
   @@index([tenantId, employeeId, workDate])
   @@index([tenantId, status])
+}
+
+// ───────────────────────────── Readiness batch ─────────────────────────────
+
+/// In-app notification. Text is rendered from messages `notifications.<kind>` with `params`.
+model Notification {
+  id        String    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  userId    String
+  user      User      @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  kind      String
+  params    Json      @default("{}")
+  link      String?
+  readAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, userId, readAt, createdAt])
+}
+
+/// "While I'm away, my approvals go to …" — from a manager to another manager/admin for a date range.
+model ApproverDelegation {
+  id             String    @id @default(cuid())
+  tenantId       String
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  fromEmployeeId String
+  from           Employee  @relation("DelegationFrom", fields: [tenantId, fromEmployeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  toEmployeeId   String
+  to             Employee  @relation("DelegationTo", fields: [tenantId, toEmployeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  startDate      DateTime  @db.Date
+  endDate        DateTime  @db.Date
+  reason         String?   @db.VarChar(300)
+  createdById    String
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  revokedAt      DateTime? @db.Timestamptz(3)
+
+  @@index([tenantId, fromEmployeeId])
+  @@index([tenantId, toEmployeeId])
+}
+
+/// Platform-level (not tenant-scoped): one-time password reset links. Only the hash is stored.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime  @db.Timestamptz(3)
+  usedAt    DateTime? @db.Timestamptz(3)
+  requestIp String?
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([userId])
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+/// Platform-level outbox: every email is recorded, then sent; failures are retried.
+model EmailMessage {
+  id        String      @id @default(cuid())
+  tenantId  String?
+  toEmail   String
+  subject   String
+  text      String
+  status    EmailStatus @default(PENDING)
+  attempts  Int         @default(0)
+  lastError String?
+  createdAt DateTime    @default(now()) @db.Timestamptz(3)
+  sentAt    DateTime?   @db.Timestamptz(3)
+
+  @@index([status, createdAt])
 }

@@ -90,7 +90,7 @@ describe("tenant isolation", () => {
 
   it("services: a manager of tenant A cannot see tenant B's employee day", async () => {
     const { getMonth } = await import("@/server/services/attendance");
-    await expect(getMonth(A.ctx.admin, B.employee.employee.id, 2026, 1, new Date())).resolves.toEqual([]);
+    await expect(getMonth(A.ctx.admin, B.employee.employee.id, 2026, 1, new Date())).rejects.toThrow("NOT_FOUND");
     await expect(getMonth(A.ctx.manager, B.employee.employee.id, 2026, 1, new Date())).rejects.toThrow("FORBIDDEN");
   });
 });

@@ -14,6 +14,7 @@ import { DecisionForm } from "@/components/decision-form";
 import { RequestStatus } from "@/components/request-status";
 import { EmptyState, PageHeader, Panel } from "@/components/ui";
 import { decideAction } from "@/app/(app)/request-actions";
+import { DelegationPanel } from "./delegation-panel";
 
 export async function generateMetadata() {
   return { title: (await getTranslations("nav"))("approvals") };
@@ -87,7 +88,10 @@ export default async function ApprovalsPage() {
                           {t("balanceLine", { balance: fmtDays(bal.balance), pending: fmtDays(bal.pending) })}
                         </p>
                       )}
-                      <p className="text-xs text-ink-3">{t("submittedAt", { time: fmtDateTime(l.createdAt, tz) })}</p>
+                      <p className="text-xs text-ink-3">
+                        {t("submittedAt", { time: fmtDateTime(l.createdAt, tz) })}
+                        {l.escalatedAt && <span className="ml-2 text-break">{t("escalated")}</span>}
+                      </p>
                     </div>
                     <DecisionForm action={decideAction.bind(null, "leave", l.id)} />
                   </li>
@@ -154,6 +158,8 @@ export default async function ApprovalsPage() {
             </ul>
           )}
         </Panel>
+
+        <DelegationPanel ctx={ctx} />
 
         <Panel title={t("recentTitle")}>
           {decided.length === 0 ? (

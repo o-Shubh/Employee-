@@ -33,6 +33,7 @@ export async function EntryList({
             {e.note && <span className="text-ink-2">{e.note}</span>}
             <span className="ml-auto flex flex-wrap gap-2 text-xs text-ink-3 no-underline">
               {e.source !== "SELF" && <Badge>{t(`source.${e.source}`)}</Badge>}
+              {e.offsite && <Badge tone="break">{t("offsite")}</Badge>}
               {backdated && <span>{t("recordedAt", { time: fmtDateTime(e.recordedAt, timezone) })}</span>}
               {e.superseded && <Badge tone="danger">{t("superseded")}</Badge>}
               {e.ip && <span>{t("ip", { ip: e.ip })}</span>}

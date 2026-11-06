@@ -3,7 +3,10 @@ import { addDaysKey, dateKeyToDb, isDateKey, localDateKey } from "@/domain/time"
 import { AppError } from "../errors";
 import type { RequestEnv, TenantCtx } from "../context";
 import { audit } from "./audit";
-import { assertCanDecide, decidableWhere, decisionInput } from "./approval-rights";
+import { approverUserIdsFor, assertCanDecide, decidableWhere, decisionInput, userIdOfEmployee } from "./approval-rights";
+import { actorName, fmtKeyForText, notify } from "./notifications";
+import { sendEmails } from "../mail";
+import { formatHm } from "@/domain/timeline";
 
 export const overtimeInput = z.object({
   workDate: z.string().refine(isDateKey),
@@ -26,6 +29,9 @@ export async function requestOvertime(ctx: TenantCtx, raw: z.input<typeof overti
     data: { tenantId: ctx.tenantId, employeeId, workDate: dateKeyToDb(workDate), minutes, reason, createdAt: env.now },
   });
   await audit(ctx, { action: "overtime.requested", entityType: "OvertimeRequest", entityId: req.id, subjectEmployeeId: employeeId, ip: env.ip, at: env.now, reason, after: { workDate, minutes } });
+  await sendEmails(await notify(ctx, ctx.db, await approverUserIdsFor(ctx, employeeId), "overtime.requested", {
+    name: await actorName(ctx, ctx.db), duration: formatHm(minutes), date: fmtKeyForText(workDate), reason,
+  }, "/approvals"));
   return req;
 }
 
@@ -44,6 +50,9 @@ export async function decideOvertime(ctx: TenantCtx, id: string, raw: { decision
     action: `overtime.${status.toLowerCase()}`, entityType: "OvertimeRequest", entityId: id, subjectEmployeeId: req.employeeId,
     ip: env.ip, at: env.now, reason: comment, before: { status: "PENDING" }, after: { status, right, minutes: req.minutes },
   });
+  await sendEmails(await notify(ctx, ctx.db, [await userIdOfEmployee(ctx.db, req.employeeId)], status === "APPROVED" ? "overtime.approved" : "overtime.rejected", {
+    duration: formatHm(req.minutes), date: fmtKeyForText(req.workDate.toISOString().slice(0, 10)), by: await actorName(ctx, ctx.db), comment: comment ?? "",
+  }, "/requests"));
   return { ...req, status };
 }
 
@@ -61,7 +70,7 @@ export async function listOvertime(ctx: TenantCtx, employeeId: string) {
 
 export async function pendingOvertimeForApprover(ctx: TenantCtx) {
   return ctx.db.overtimeRequest.findMany({
-    where: { status: "PENDING", ...decidableWhere(ctx) },
+    where: { status: "PENDING", ...(await decidableWhere(ctx)) },
     orderBy: { createdAt: "asc" },
     include: { employee: { select: { id: true, fullName: true, employeeCode: true } } },
   });

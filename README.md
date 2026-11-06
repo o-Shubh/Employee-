@@ -2,7 +2,7 @@
 
 A self-service digital work logbook for corporate and government employees, modelled on trucking ELD logbooks. Employees mark their own attendance, breaks and field duty from their office computer. Managers monitor, and company admins configure. It's multi-tenant and sold to many companies.
 
-> Status: **Phase 2 done**. Phase 1 covered auth, tenants, employees, check-in/break/field/check-out with IP + device checks, the status widget, idle prompt, day certification and My Logs. Phase 2 adds leave (ledger-based balances), corrections, overtime, the manager approval queue, a live team board, the company audit log, and a ZIP data export. See [docs/PLAN.md](docs/PLAN.md) for the full plan.
+> Status: **Phase 2 + pilot-readiness batch done**. The readiness batch added email and in-app notifications, password reset by email, approver cover and escalation, company settings, field check-out, and a committed end-to-end suite. Phase 1 covered auth, tenants, employees, check-in/break/field/check-out with IP + device checks, the status widget, idle prompt, day certification and My Logs. Phase 2 adds leave (ledger-based balances), corrections, overtime, the manager approval queue, a live team board, the company audit log, and a ZIP data export. See [docs/PLAN.md](docs/PLAN.md) for the full plan.
 
 ## Run it locally
 
@@ -12,7 +12,7 @@ A self-service digital work logbook for corporate and government employees, mode
 docker compose up
 ```
 
-This starts Postgres (dev on :5432, a RAM-only test DB on :5433), applies migrations, seeds demo data on first run, and serves the app at http://localhost:3000.
+This starts Postgres (dev on :5432, a RAM-only test DB on :5433), applies migrations, seeds demo data on first run, and serves the app at http://localhost:3000. Every email the app sends (notifications, password resets) lands in **Mailpit** at http://localhost:8025.
 
 ### Option B: databases in Docker, app on your machine (faster reloads)
 
@@ -63,6 +63,15 @@ npm run test:integration    # against DATABASE_URL_TEST: tenant isolation, appen
 
 Integration tests only *apply* migrations to the test DB (never reset it). Each test creates its own uniquely named tenants, which also exercises isolation. The setup refuses to run against a database URL that doesn't contain `test`.
 
+End-to-end (Playwright, against a production build and the test database):
+
+```bash
+npm run build
+npm run test:e2e            # 7 browser flows; each run creates its own fresh tenants
+```
+
+They cover first sign-in (forced password change and privacy notice), forgot password, the device gate (register, approve, punch a full day, certify), check-in from outside the office being refused, leave approval with notifications, approver cover, and cross-tenant URL guessing. CI runs everything: lint, types, unit, integration, build and e2e.
+
 Also: `npm run lint`, `npm run typecheck`, `npm run build`.
 
 ## How it's built
@@ -80,6 +89,9 @@ Also: `npm run lint`, `npm run typecheck`, `npm run build`.
 | Time | Stored as UTC `timestamptz`; shown in the tenant's zone (default `Asia/Kolkata`). A shift belongs to the local date of its check-in, so night shifts stay on one day. |
 | Idle prompt | `src/components/status/status-provider.tsx` notices *that* the tab had input (never what), syncs across tabs, and asks. It never deducts time. |
 | Privacy (DPDP Act 2023) | Versioned consent notice at first sign-in (recorded with time and IP). **My data** lists what is and isn't recorded, shows the full audit trail, and offers a JSON download. Photo views by others are audited. |
+| Notifications | `src/server/services/notifications.ts`. In-app rows are written inside the action's transaction. Emails go through an outbox (`EmailMessage`) and are sent only after commit, so a failed action never emails anyone; failed sends are retried. Text comes from `messages/en.json` → `notifications.*`, so it's ready for translation. |
+| Sessions | JWTs carry the user's `authVersion`. Changing or resetting a password, or deactivating a user or changing their role, bumps it and signs out every existing session. |
+| Background sweep | `src/server/jobs/` runs every 15 minutes in-process, with a Postgres advisory lock so only one instance runs it. It escalates stale requests (and those whose approver is on leave without cover), marks never-closed days as missed check-outs, and retries emails. For serverless, set `DISABLE_SCHEDULER=1` and call `POST /api/cron/sweep` with `Authorization: Bearer $CRON_SECRET`. |
 | i18n | `next-intl`, all strings in `messages/en.json`. To add Hindi, create `messages/hi.json` and add `"hi"` to `LOCALES` in `src/i18n/request.ts`. |
 
 ```

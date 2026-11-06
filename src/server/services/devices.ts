@@ -4,6 +4,9 @@ import { isAdmin, type RequestEnv, type TenantCtx } from "../context";
 import { generateDeviceToken, hashDeviceToken } from "../security/device-token";
 import { checkGate } from "./attendance";
 import { audit } from "./audit";
+import { actorName, adminUserIds, notify } from "./notifications";
+import { userIdOfEmployee } from "./approval-rights";
+import { sendEmails } from "../mail";
 
 export const registerDeviceInput = z.object({ label: z.string().trim().min(2).max(80) });
 
@@ -44,6 +47,7 @@ export async function requestDeviceRegistration(ctx: TenantCtx, raw: z.input<typ
     action: "device.requested", entityType: "Device", entityId: device.id, subjectEmployeeId: employeeId, ip: env.ip, at: env.now,
     after: { label, userAgent: device.userAgent },
   });
+  await sendEmails(await notify(ctx, ctx.db, await adminUserIds(ctx.db), "device.requested", { name: await actorName(ctx, ctx.db), label }, "/admin/devices"));
   return { deviceId: device.id, token };
 }
 
@@ -94,5 +98,7 @@ export async function decideDevice(ctx: TenantCtx, raw: z.input<typeof decideDev
     subjectEmployeeId: device.employeeId, ip: env.ip, at: env.now, reason: note ?? null,
     before: { status: device.status }, after: { status },
   });
+  const kind = status === "APPROVED" ? "device.approved" : status === "REJECTED" ? "device.rejected" : "device.revoked";
+  await sendEmails(await notify(ctx, ctx.db, [await userIdOfEmployee(ctx.db, device.employeeId)], kind, { label: device.label, comment: note ?? "" }, "/device"));
   return updated;
 }

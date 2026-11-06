@@ -136,3 +136,18 @@ export async function adjustBalanceAction(_p: FormState, f: FormData): Promise<F
   revalidatePath("/admin/leave-types");
   return res.ok ? { ok: true } : { ok: false, code: res.code };
 }
+
+// ─── Readiness batch: settings ───
+export async function saveSettingsAction(_p: FormState, f: FormData): Promise<FormState> {
+  const { ctx, env } = await adminCtx();
+  const { updateTenantSettings } = await import("@/server/services/tenant-settings");
+  const res = await run(() =>
+    updateTenantSettings(ctx, {
+      idleTimeoutMin: s(f, "idleTimeoutMin"), requirePhotoAtCheckIn: f.get("requirePhotoAtCheckIn") === "on",
+      allowFieldCheckoutAnywhere: f.get("allowFieldCheckoutAnywhere") === "on", escalationDays: s(f, "escalationDays"),
+      weeklyOffDays: f.getAll("weeklyOffDays").map(String), photoRetentionDays: s(f, "photoRetentionDays"), grievanceContact: s(f, "grievanceContact"),
+    } as never, env),
+  );
+  revalidatePath("/", "layout");
+  return res.ok ? { ok: true } : { ok: false, code: res.code };
+}

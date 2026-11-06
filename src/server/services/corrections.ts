@@ -8,7 +8,9 @@ import type { RequestEnv, TenantCtx } from "../context";
 import type { TenantClient } from "../db/tenant";
 import { audit } from "./audit";
 import { loadDayEntries, lockEmployee, recomputeDay } from "./attendance";
-import { assertCanDecide, decidableWhere, decisionInput } from "./approval-rights";
+import { approverUserIdsFor, assertCanDecide, decidableWhere, decisionInput, userIdOfEmployee } from "./approval-rights";
+import { actorName, fmtKeyForText, notify } from "./notifications";
+import { sendEmails, type OutgoingEmail } from "../mail";
 
 const opSchema = z.discriminatedUnion("op", [
   z.object({
@@ -59,7 +61,8 @@ export async function requestCorrection(ctx: TenantCtx, raw: z.input<typeof corr
   if (workDate > today) throw new AppError("CORRECTION_FUTURE_DAY");
   if (workDate < addDaysKey(today, -MAX_DAYS_BACK)) throw new AppError("CORRECTION_TOO_OLD");
 
-  return ctx.db.$transaction(async (tx) => {
+  let mail: OutgoingEmail[] = [];
+  const created = await ctx.db.$transaction(async (tx) => {
     await lockEmployee(tx, ctx.tenantId, employeeId);
     const entries = await loadDayEntries(tx, employeeId, workDate);
     const sim = simulate(ctx, entries, workDate, ops, env.now);
@@ -73,8 +76,13 @@ export async function requestCorrection(ctx: TenantCtx, raw: z.input<typeof corr
       action: "correction.requested", entityType: "CorrectionRequest", entityId: req.id, subjectEmployeeId: employeeId, ip: env.ip, at: env.now,
       reason, after: { workDate, ops: ops as unknown as Prisma.InputJsonValue },
     }, tx);
+    mail = await notify(ctx, tx, await approverUserIdsFor(ctx, employeeId, tx), "correction.requested", {
+      name: await actorName(ctx, tx), date: fmtKeyForText(workDate), reason,
+    }, "/approvals");
     return req;
   });
+  await sendEmails(mail);
+  return created;
 }
 
 /**
@@ -84,7 +92,8 @@ export async function requestCorrection(ctx: TenantCtx, raw: z.input<typeof corr
  */
 export async function decideCorrection(ctx: TenantCtx, id: string, raw: { decision: string; comment?: string | null }, env: RequestEnv) {
   const { decision, comment } = decisionInput(raw);
-  return ctx.db.$transaction(async (tx) => {
+  let mail: OutgoingEmail[] = [];
+  const result = await ctx.db.$transaction(async (tx) => {
     const req = await tx.correctionRequest.findUnique({ where: { id } });
     if (!req) throw new AppError("NOT_FOUND");
     const right = await assertCanDecide(ctx, req.employeeId, tx);
@@ -110,8 +119,13 @@ export async function decideCorrection(ctx: TenantCtx, id: string, raw: { decisi
       ip: env.ip, at: env.now, reason: comment, before: { status: "PENDING" }, after: { status, right, appliedEntryIds: applied, workDate },
     }, tx);
     if (status === "APPROVED") await recomputeDay(ctx, req.employeeId, workDate, env.now, tx);
+    mail = await notify(ctx, tx, [await userIdOfEmployee(tx, req.employeeId)], status === "APPROVED" ? "correction.approved" : "correction.rejected", {
+      date: fmtKeyForText(workDate), by: await actorName(ctx, tx), comment: comment ?? "",
+    }, `/logs/${workDate}`);
     return updated;
   });
+  await sendEmails(mail);
+  return result;
 }
 
 async function applyOps(
@@ -161,7 +175,7 @@ export async function listCorrections(ctx: TenantCtx, employeeId: string, opts: 
 
 export async function pendingCorrectionsForApprover(ctx: TenantCtx) {
   return ctx.db.correctionRequest.findMany({
-    where: { status: "PENDING", ...decidableWhere(ctx) },
+    where: { status: "PENDING", ...(await decidableWhere(ctx)) },
     orderBy: { createdAt: "asc" },
     include: { employee: { select: { id: true, fullName: true, employeeCode: true } } },
   });

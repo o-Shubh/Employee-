@@ -48,15 +48,35 @@ export function Select(props: ComponentProps<"select">) {
   return <select {...props} className={cn(inputClass, "pr-8", props.className)} />;
 }
 
+/**
+ * Label + control. With `htmlFor` the label points at the control's id; without it
+ * the label wraps the control, so screen readers (and getByLabel) still pair them.
+ */
 export function Field({ label, hint, error, children, htmlFor }: { label: string; hint?: string; error?: string; children: ReactNode; htmlFor?: string }) {
+  const extra = (
+    <>
+      {hint && !error && <p className="text-xs text-ink-3">{hint}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </>
+  );
+  if (!htmlFor) {
+    return (
+      <div className="space-y-1.5">
+        <label className="block space-y-1.5">
+          <span className="block text-sm font-medium text-ink">{label}</span>
+          {children}
+        </label>
+        {extra}
+      </div>
+    );
+  }
   return (
     <div className="space-y-1.5">
       <label htmlFor={htmlFor} className="block text-sm font-medium text-ink">
         {label}
       </label>
       {children}
-      {hint && !error && <p className="text-xs text-ink-3">{hint}</p>}
-      {error && <p className="text-xs text-danger">{error}</p>}
+      {extra}
     </div>
   );
 }

@@ -34,7 +34,10 @@
     "approvals": "Approvals",
     "leaveTypes": "Leave types",
     "audit": "Audit log",
-    "pendingCount": "{count} waiting"
+    "pendingCount": "{count} waiting",
+    "notifications": "Notifications",
+    "account": "Account",
+    "settings": "Company settings"
   },
   "status": {
     "ON_DUTY": "On duty",
@@ -141,7 +144,8 @@
     "recordedAt": "recorded {time}",
     "superseded": "Replaced by a correction",
     "ip": "IP {ip}",
-    "photo": "Photo"
+    "photo": "Photo",
+    "offsite": "Outside office network"
   },
   "graph": {
     "off": "Off duty",
@@ -263,7 +267,10 @@
       },
       "user": {
         "password_reset": "Password reset by admin",
-        "password_changed": "Password changed"
+        "password_changed": "Password changed",
+        "password_reset_requested": "Password reset link requested",
+        "password_reset_completed": "Password reset with emailed link",
+        "preferences_changed": "Notification preferences changed"
       },
       "auth": {
         "login": "Signed in",
@@ -298,6 +305,16 @@
         "approved": "Overtime approved",
         "rejected": "Overtime rejected",
         "cancelled": "Overtime withdrawn"
+      },
+      "delegation": {
+        "created": "Approval cover set up",
+        "revoked": "Approval cover ended"
+      },
+      "settings": {
+        "updated": "Company settings changed"
+      },
+      "requests": {
+        "escalated": "Requests escalated to admins"
       }
     }
   },
@@ -370,7 +387,8 @@
     "noneInFilter": "No one has this status right now.",
     "halfDayLeave": "half-day {type}",
     "leaveToday": "{type} leave today",
-    "refreshNote": "Updates every 30 seconds."
+    "refreshNote": "Updates every 30 seconds.",
+    "offsite": "checked out outside the office"
   },
   "auth": {
     "loginTitle": "Sign in",
@@ -386,7 +404,16 @@
     "newPassword": "New password",
     "passwordRules": "At least 10 characters, with a letter and a number.",
     "confirmPassword": "Confirm new password",
-    "savePassword": "Save password"
+    "savePassword": "Save password",
+    "forgotLink": "Forgot your password?",
+    "forgotTitle": "Reset your password",
+    "forgotSubtitle": "Enter your work email and we'll send you a link to set a new password.",
+    "sendLink": "Send reset link",
+    "forgotSent": "If that email has a WorkLog account, a reset link is on its way. It works once, for 30 minutes.",
+    "backToSignIn": "Back to sign in",
+    "resetTitle": "Set a new password",
+    "resetMissingToken": "This link is incomplete. Open the link from your email again.",
+    "requestNewLink": "Request a new link"
   },
   "consent": {
     "title": "Before you start: how your data is used",
@@ -501,7 +528,13 @@
       "address": "Address",
       "cidrs": "Allowed networks",
       "cidrsHint": "One per line, e.g. 203.0.113.0/24 or a single public IP. Ask IT for your office's public IP range.",
-      "active": "Active"
+      "active": "Active",
+      "ipUnknown": "WorkLog can't see your network address. Check TRUST_PROXY_HOPS in the server settings.",
+      "yourAddress": "WorkLog sees you at {ip}",
+      "useMyNetwork": "Add this network",
+      "added": "Added. Save to keep it.",
+      "privateWarning": "This is a private or local address, so it only works for computers on the same internal network as the server. If employees reach WorkLog over the internet, use your office's public IP range instead.",
+      "publicHint": "Add this while you're at the office to allow its internet connection. Save the location afterwards."
     },
     "devices": {
       "title": "Computers",
@@ -587,8 +620,43 @@
         "photo": "Photo views",
         "location": "Office locations",
         "department": "Departments",
-        "leave_type": "Leave types"
+        "leave_type": "Leave types",
+        "delegation": "Approval cover",
+        "settings": "Settings",
+        "requests": "Escalations"
       }
+    },
+    "settings": {
+      "title": "Company settings",
+      "description": "Applies to everyone in your company. Times are shown in {tz}.",
+      "save": "Save settings",
+      "saved": "Settings saved.",
+      "attendance": "Attendance",
+      "fieldCheckout": "Let field staff check out from outside the office",
+      "fieldCheckoutHint": "Only when ending field duty. The entry is marked Outside office network so managers can see it.",
+      "photo": "Ask for a photo at check-in",
+      "photoHint": "Uses the webcam once at check-in. Employees are told before it's used.",
+      "idle": "Idle prompt after (minutes)",
+      "idleHint": "How long a WorkLog tab can be untouched before asking \"Were you on a break?\"",
+      "retention": "Keep check-in photos for (days)",
+      "retentionHint": "Older photos are deleted.",
+      "weeklyOff": "Weekly off days",
+      "weekdays": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
+      "weeklyOffHint": "Leave isn't charged for these days.",
+      "approvals": "Approvals",
+      "escalation": "Escalate requests to admins after (days)",
+      "escalationHint": "Also escalated straight away if the approver is on leave and nobody is covering.",
+      "privacy": "Privacy",
+      "grievance": "Grievance contact",
+      "grievanceHint": "Shown in the privacy notice (DPDP Act 2023). For example: HR desk, email and phone."
     }
   },
   "super": {
@@ -718,7 +786,13 @@
     "CORRECTION_RESULT_INVALID_SEQUENCE": "The corrected day doesn't make sense in order, e.g. a break without returning, or on duty twice in a row. Check the times.",
     "CORRECTION_RESULT_NOT_CHECKED_OUT": "The corrected day still has no check-out. Add one.",
     "OVERTIME_DATE_OUT_OF_RANGE": "Overtime can be requested from 30 days back to 30 days ahead.",
-    "OVERTIME_ALREADY_REQUESTED": "You already have overtime requested or approved for that day."
+    "OVERTIME_ALREADY_REQUESTED": "You already have overtime requested or approved for that day.",
+    "RESET_LINK_INVALID": "This reset link has expired or was already used. Request a new one.",
+    "DELEGATE_SELF": "Choose someone other than the manager whose approvals they'll cover.",
+    "DELEGATION_IN_PAST": "The cover period has already ended.",
+    "DELEGATION_TOO_LONG": "Cover can be set up to 6 months ahead.",
+    "DELEGATE_ROLE_REQUIRED": "Approvals can only be sent to a manager or company admin.",
+    "DELEGATION_OVERLAP": "There's already cover set up for some of these dates."
   },
   "requestStatus": {
     "PENDING": "Pending",
@@ -838,6 +912,120 @@
     "noRecent": "You haven't decided anything yet.",
     "recentLeave": "{type} leave from {from}, {days} days",
     "recentCorrection": "Correction for {date}",
-    "recentOvertime": "Overtime {duration} on {date}"
+    "recentOvertime": "Overtime {duration} on {date}",
+    "escalated": "Escalated to admins"
+  },
+  "notifications": {
+    "emailFooter": "You're getting this because email notifications are on. Turn them off in WorkLog: {url}",
+    "leave": {
+      "requested": {
+        "title": "Leave request from {name}",
+        "body": "{name} asked for {type} from {from} to {to} ({days} days): {reason}"
+      },
+      "approved": {
+        "title": "Leave approved",
+        "body": "Your {type} from {from} was approved by {by}. {comment}"
+      },
+      "rejected": {
+        "title": "Leave not approved",
+        "body": "Your {type} from {from} was rejected by {by}: {comment}"
+      },
+      "cancelled": {
+        "title": "Leave cancelled",
+        "body": "Your approved {type} from {from} was cancelled by {by}: {comment}"
+      }
+    },
+    "correction": {
+      "requested": {
+        "title": "Correction request from {name}",
+        "body": "{name} asked to correct their log for {date}: {reason}"
+      },
+      "approved": {
+        "title": "Correction approved",
+        "body": "Your correction for {date} was approved by {by} and applied. Please certify the day again. {comment}"
+      },
+      "rejected": {
+        "title": "Correction not approved",
+        "body": "Your correction for {date} was rejected by {by}: {comment}"
+      }
+    },
+    "overtime": {
+      "requested": {
+        "title": "Overtime request from {name}",
+        "body": "{name} asked for {duration} of overtime on {date}: {reason}"
+      },
+      "approved": {
+        "title": "Overtime approved",
+        "body": "Your {duration} of overtime on {date} was approved by {by}. {comment}"
+      },
+      "rejected": {
+        "title": "Overtime not approved",
+        "body": "Your {duration} of overtime on {date} was rejected by {by}: {comment}"
+      }
+    },
+    "device": {
+      "requested": {
+        "title": "Computer waiting for approval",
+        "body": "{name} asked to register \"{label}\" for check-in."
+      },
+      "approved": {
+        "title": "Computer approved",
+        "body": "\"{label}\" is approved. You can check in from it now."
+      },
+      "rejected": {
+        "title": "Computer not approved",
+        "body": "\"{label}\" wasn't approved. {comment}"
+      },
+      "revoked": {
+        "title": "Computer access removed",
+        "body": "\"{label}\" can no longer be used to check in. {comment}"
+      }
+    },
+    "delegation": {
+      "assigned": {
+        "title": "You're covering approvals for {name}",
+        "body": "{name}'s team requests come to you from {from} to {to}."
+      }
+    },
+    "requests": {
+      "escalated": {
+        "title": "Requests waiting too long",
+        "body": "{count, plural, one {# request has} other {# requests have}} waited more than {days} days, or the approver is on leave. Please review them."
+      }
+    }
+  },
+  "notificationsPage": {
+    "title": "Notifications",
+    "unread": "{count, plural, one {# unread} other {# unread}}",
+    "allRead": "You're all caught up.",
+    "markAllRead": "Mark all as read",
+    "empty": "No notifications yet."
+  },
+  "account": {
+    "title": "Account",
+    "emailTitle": "Email notifications",
+    "emailToggle": "Email me about requests and decisions",
+    "emailHint": "You'll still see everything under Notifications in WorkLog.",
+    "save": "Save",
+    "saved": "Saved.",
+    "passwordTitle": "Password",
+    "passwordHelp": "Changing your password signs you out on every other device.",
+    "changePassword": "Change password"
+  },
+  "delegation": {
+    "title": "Cover while away",
+    "help": "Going on leave or travelling? Send your team's requests to another manager or admin for those dates. You can still decide them yourself.",
+    "line": "{from}'s approvals go to {to}, {start} to {end}",
+    "active": "Active now",
+    "upcoming": "Upcoming",
+    "end": "End",
+    "save": "Set up cover",
+    "saved": "Cover set up. They've been notified.",
+    "from": "Whose approvals",
+    "to": "Send to",
+    "startDate": "From",
+    "endDate": "To",
+    "reason": "Note (optional)",
+    "reasonPlaceholder": "Annual leave"
   }
 }

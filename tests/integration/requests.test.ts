@@ -54,7 +54,7 @@ describe("leave", () => {
     await cancelLeave(T.ctx.employee, req.id, {}, env());
     [b] = await getBalances(T.ctx.employee, T.employee.employee.id, 2026);
     expect(b).toMatchObject({ balance: 8, used: 0 });
-    const kinds = (await db.leaveLedger.findMany({ where: { leaveRequestId: req.id }, orderBy: { createdAt: "asc" } })).map((l) => [l.kind, Number(l.days)]);
+    const kinds = (await db.leaveLedger.findMany({ where: { leaveRequestId: req.id }, orderBy: [{ createdAt: "asc" }, { kind: "asc" }] })).map((l) => [l.kind, Number(l.days)]);
     expect(kinds).toEqual([["DEBIT", -2.5], ["REVERSAL", 2.5]]);
   });
 

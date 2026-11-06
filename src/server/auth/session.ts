@@ -21,6 +21,8 @@ export const getCurrentUser = cache(async () => {
     include: { tenant: true, employee: { select: { id: true, fullName: true, employeeCode: true } } },
   });
   if (!user || user.status !== "ACTIVE") return null;
+  // Password changed/reset (or account re-secured) since this session was issued.
+  if ((session.user.av ?? 0) !== user.authVersion) return null;
   if (user.tenant && user.tenant.status !== "ACTIVE") return null;
   return user;
 });

@@ -37,7 +37,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   const empName = new Map(employees.map((e) => [e.id, e.fullName]));
   const actorName = new Map(employees.map((e) => [e.userId, e.fullName]));
   const userEmail = new Map(users.map((u) => [u.id, u.email]));
-  const groups = ["attendance", "day", "leave", "correction", "overtime", "device", "employee", "user", "auth", "consent", "privacy", "photo", "location", "department", "leave_type"];
+  const groups = ["attendance", "day", "leave", "correction", "overtime", "device", "employee", "user", "auth", "consent", "privacy", "photo", "location", "department", "leave_type", "delegation", "settings", "requests"];
   const q = (p: number) => {
     const u = new URLSearchParams({ from, to, page: String(p) });
     if (sp.employee) u.set("employee", sp.employee);

@@ -51,17 +51,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
         if (!ok || blocked) return null;
         await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-        return { id: user.id, email: user.email };
+        return { id: user.id, email: user.email, av: user.authVersion };
       },
     }),
   ],
   callbacks: {
     jwt({ token, user }) {
-      if (user?.id) token.uid = user.id;
+      if (user?.id) {
+        token.uid = user.id;
+        token.av = (user as { av?: number }).av ?? 0;
+      }
       return token;
     },
     session({ session, token }) {
       if (token.uid) session.user.id = token.uid as string;
+      session.user.av = typeof token.av === "number" ? token.av : 0;
       return session;
     },
   },

@@ -91,6 +91,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                     )}
                     {board === "ON_LEAVE" && !leave?.halfDay && <span className="ml-2 text-xs text-ink-3">{leave?.name}</span>}
                     {s.missedCheckoutOn && <span className="ml-2 text-xs text-danger">{t("missedCheckout")}</span>}
+                    {s.entries.some((e) => e.offsite) && <span className="ml-2 text-xs text-break">{t("offsite")}</span>}
                     {board === "FIELD_DUTY" && s.entries.at(-1)?.note && <span className="block text-xs text-ink-3">{s.entries.at(-1)?.note}</span>}
                   </td>
                   <td className="tabular">{s.status !== "OFF" && s.computation.statusSince ? fmtTime(s.computation.statusSince, tz) : "—"}</td>

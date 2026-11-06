@@ -8,3 +8,5 @@ if (!process.env.DATABASE_URL_TEST) throw new Error("DATABASE_URL_TEST is not se
 process.env.DATABASE_URL = process.env.DATABASE_URL_TEST;
 process.env.STORAGE_DIR = process.env.STORAGE_DIR_TEST ?? "./storage-test";
 process.env.STALE_SHIFT_HOURS = "16";
+process.env.MAIL_LOG = "0";
+process.env.DISABLE_SCHEDULER = "1";

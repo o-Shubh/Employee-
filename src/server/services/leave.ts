@@ -7,7 +7,9 @@ import { isAdmin, type RequestEnv, type TenantCtx } from "../context";
 import type { TenantClient } from "../db/tenant";
 import { audit } from "./audit";
 import { lockEmployee } from "./attendance";
-import { assertCanDecide, decidableWhere, decisionInput } from "./approval-rights";
+import { approverUserIdsFor, assertCanDecide, decidableWhere, decisionInput, userIdOfEmployee } from "./approval-rights";
+import { actorName, fmtKeyForText, notify } from "./notifications";
+import { sendEmails, type OutgoingEmail } from "../mail";
 
 const num = (d: { toString(): string } | number) => Number(d);
 
@@ -158,8 +160,9 @@ export async function applyLeave(ctx: TenantCtx, raw: z.input<typeof applyLeaveI
   const count = previewLeaveDays(ctx, input);
   if (!count.ok) throw new AppError(`LEAVE_${count.error}`);
   const year = Number(input.startDate.slice(0, 4));
+  let mail: OutgoingEmail[] = [];
 
-  return ctx.db.$transaction(async (tx) => {
+  const created = await ctx.db.$transaction(async (tx) => {
     await lockEmployee(tx, ctx.tenantId, employeeId);
     const overlap = await tx.leaveRequest.findFirst({
       where: {
@@ -183,8 +186,13 @@ export async function applyLeave(ctx: TenantCtx, raw: z.input<typeof applyLeaveI
       action: "leave.requested", entityType: "LeaveRequest", entityId: req.id, subjectEmployeeId: employeeId, ip: env.ip, at: env.now,
       after: { type: type.code, startDate: input.startDate, endDate: input.endDate, halfDayStart: input.halfDayStart, halfDayEnd: input.halfDayEnd, days: count.days, reason: input.reason },
     }, tx);
+    mail = await notify(ctx, tx, await approverUserIdsFor(ctx, employeeId, tx), "leave.requested", {
+      name: await actorName(ctx, tx), type: type.name, from: fmtKeyForText(input.startDate), to: fmtKeyForText(input.endDate), days: count.days, reason: input.reason,
+    }, "/approvals");
     return req;
   });
+  await sendEmails(mail);
+  return created;
 }
 
 async function debitOrReverse(ctx: TenantCtx, tx: TenantClient, req: LeaveRequest, kind: "DEBIT" | "REVERSAL", now: Date, reason: string) {
@@ -198,7 +206,8 @@ async function debitOrReverse(ctx: TenantCtx, tx: TenantClient, req: LeaveReques
 
 export async function decideLeave(ctx: TenantCtx, id: string, raw: { decision: string; comment?: string | null }, env: RequestEnv) {
   const { decision, comment } = decisionInput(raw);
-  return ctx.db.$transaction(async (tx) => {
+  let mail: OutgoingEmail[] = [];
+  const result = await ctx.db.$transaction(async (tx) => {
     const req = await tx.leaveRequest.findUnique({ where: { id }, include: { leaveType: true } });
     if (!req) throw new AppError("NOT_FOUND");
     const right = await assertCanDecide(ctx, req.employeeId, tx);
@@ -220,13 +229,19 @@ export async function decideLeave(ctx: TenantCtx, id: string, raw: { decision: s
       action: `leave.${status.toLowerCase()}`, entityType: "LeaveRequest", entityId: id, subjectEmployeeId: req.employeeId, ip: env.ip, at: env.now,
       reason: comment, before: { status: "PENDING" }, after: { status, right },
     }, tx);
+    mail = await notify(ctx, tx, [await userIdOfEmployee(tx, req.employeeId)], status === "APPROVED" ? "leave.approved" : "leave.rejected", {
+      type: req.leaveType.name, from: fmtKeyForText(dbToDateKey(req.startDate)), by: await actorName(ctx, tx), comment: comment ?? "",
+    }, "/leave");
     return updated;
   });
+  await sendEmails(mail);
+  return result;
 }
 
 export async function cancelLeave(ctx: TenantCtx, id: string, raw: { comment?: string | null }, env: RequestEnv) {
-  return ctx.db.$transaction(async (tx) => {
-    const req = await tx.leaveRequest.findUnique({ where: { id } });
+  let mail: OutgoingEmail[] = [];
+  const result = await ctx.db.$transaction(async (tx) => {
+    const req = await tx.leaveRequest.findUnique({ where: { id }, include: { leaveType: true } });
     if (!req) throw new AppError("NOT_FOUND");
     const own = req.employeeId === ctx.actor.employeeId;
     if (!own) await assertCanDecide(ctx, req.employeeId, tx);
@@ -244,8 +259,15 @@ export async function cancelLeave(ctx: TenantCtx, id: string, raw: { comment?: s
       action: "leave.cancelled", entityType: "LeaveRequest", entityId: id, subjectEmployeeId: req.employeeId, ip: env.ip, at: env.now,
       reason: comment, before: { status: fresh.status }, after: { status: "CANCELLED", byEmployee: own },
     }, tx);
+    if (!own && fresh.status === "APPROVED") {
+      mail = await notify(ctx, tx, [await userIdOfEmployee(tx, req.employeeId)], "leave.cancelled", {
+        type: req.leaveType.name, from: fmtKeyForText(dbToDateKey(req.startDate)), by: await actorName(ctx, tx), comment: comment ?? "",
+      }, "/leave");
+    }
     return updated;
   });
+  await sendEmails(mail);
+  return result;
 }
 
 export async function listLeaveRequests(ctx: TenantCtx, employeeId: string, opts: { take?: number } = {}) {
@@ -268,7 +290,7 @@ export async function leaveInRange(ctx: TenantCtx, from: DateKey, to: DateKey, e
 
 export async function pendingLeaveForApprover(ctx: TenantCtx) {
   return ctx.db.leaveRequest.findMany({
-    where: { status: "PENDING", ...decidableWhere(ctx) },
+    where: { status: "PENDING", ...(await decidableWhere(ctx)) },
     orderBy: { createdAt: "asc" },
     include: { leaveType: { select: { code: true, name: true, tracksBalance: true } }, employee: { select: { id: true, fullName: true, employeeCode: true, managerId: true } } },
   });

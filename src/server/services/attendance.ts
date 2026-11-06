@@ -95,37 +95,45 @@ export async function loadDayEntries(db: TenantClient, employeeId: string, workD
   });
 }
 
+/**
+ * Pure: the current shift from the entries of an employee's most recent work date.
+ * Shared by getShiftState (one employee) and the team board (many at once).
+ */
+export function deriveShiftState(
+  latestWorkDate: DateKey | null,
+  entries: LogEntry[],
+  todayKey: DateKey,
+  opts: { now: Date; staleAfterMs: number },
+): ShiftState {
+  const empty = (missed: DateKey | null): ShiftState => ({
+    workDate: todayKey, todayKey, status: "OFF", computation: computeDay([], opts), entries: [], missedCheckoutOn: missed,
+  });
+  if (!latestWorkDate) return empty(null);
+  const computation = computeDay(entries, opts);
+  if (computation.status !== "OFF" || latestWorkDate === todayKey) {
+    return {
+      workDate: latestWorkDate, todayKey, status: computation.status, computation, entries,
+      missedCheckoutOn: computation.missedCheckout ? latestWorkDate : null,
+    };
+  }
+  return empty(computation.missedCheckout ? latestWorkDate : null);
+}
+
 export async function getShiftState(
   ctx: TenantCtx,
   employeeId: string,
   now: Date,
   db: TenantClient = ctx.db,
 ): Promise<ShiftState> {
-  const tz = ctx.tenant.timezone;
-  const todayKey = localDateKey(now, tz);
-  const opts = { now, staleAfterMs: staleShiftMs() };
+  const todayKey = localDateKey(now, ctx.tenant.timezone);
   const latest = await db.logEntry.findFirst({
     where: { employeeId },
     orderBy: [{ occurredAt: "desc" }, { recordedAt: "desc" }],
     select: { workDate: true },
   });
-
-  const empty = (missed: DateKey | null): ShiftState => ({
-    workDate: todayKey, todayKey, status: "OFF", computation: computeDay([], opts), entries: [], missedCheckoutOn: missed,
-  });
-  if (!latest) return empty(null);
-
-  const wk = dbToDateKey(latest.workDate);
-  const entries = await loadDayEntries(db, employeeId, wk);
-  const computation = computeDay(entries, opts);
-
-  if (computation.status !== "OFF" || wk === todayKey) {
-    return {
-      workDate: wk, todayKey, status: computation.status, computation, entries,
-      missedCheckoutOn: computation.missedCheckout ? wk : null,
-    };
-  }
-  return empty(computation.missedCheckout ? wk : null);
+  const wk = latest ? dbToDateKey(latest.workDate) : null;
+  const entries = wk ? await loadDayEntries(db, employeeId, wk) : [];
+  return deriveShiftState(wk, entries, todayKey, { now, staleAfterMs: staleShiftMs() });
 }
 
 // ───────────────────────────── Writing ─────────────────────────────
@@ -153,7 +161,17 @@ export async function punch(ctx: TenantCtx, raw: PunchInput, env: RequestEnv) {
   if (!parsed.success) throw new AppError("VALIDATION", { issues: parsed.error.issues.map((i) => i.message) });
   const input = parsed.data;
 
-  const gate = await checkGate(ctx, employeeId, env);
+  let gate = await checkGate(ctx, employeeId, env);
+  // Field staff may end their day where they are, if the company allows it.
+  // The entry is flagged offsite so managers can see it.
+  let offsite = false;
+  if (!gate.ok && input.type === "CHECK_OUT" && ctx.tenant.allowFieldCheckoutAnywhere) {
+    const st = await getShiftState(ctx, employeeId, env.now);
+    if (st.status === "FIELD_DUTY") {
+      offsite = true;
+      gate = { ok: true, deviceId: null };
+    }
+  }
   if (!gate.ok) {
     await audit(ctx, {
       action: "attendance.denied",
@@ -179,6 +197,8 @@ export async function punch(ctx: TenantCtx, raw: PunchInput, env: RequestEnv) {
     const state = await getShiftState(ctx, employeeId, env.now, tx);
     const t = canTransition(state.status, input.type);
     if (!t.ok) throw new AppError(t.error, { status: state.status });
+    // Re-check under the lock: the offsite allowance only applies when ending field duty.
+    if (offsite && state.status !== "FIELD_DUTY") throw new AppError("IP_NOT_ALLOWED");
 
     const workDate = input.type === "CHECK_IN" ? state.todayKey : state.workDate;
     const created = await tx.logEntry.create({
@@ -194,11 +214,12 @@ export async function punch(ctx: TenantCtx, raw: PunchInput, env: RequestEnv) {
         source: "SELF",
         createdById: ctx.actor.userId,
         ip: env.ip,
-        deviceId: gate.deviceId,
+        deviceId: gate.ok ? gate.deviceId : null,
         photoKey,
+        offsite,
       },
     });
-    if (gate.deviceId) {
+    if (gate.ok && gate.deviceId) {
       await tx.device.update({ where: { id: gate.deviceId }, data: { lastSeenAt: env.now, lastIp: env.ip } });
     }
     await audit(
@@ -209,7 +230,8 @@ export async function punch(ctx: TenantCtx, raw: PunchInput, env: RequestEnv) {
         entityId: created.id,
         subjectEmployeeId: employeeId,
         ip: env.ip, at: env.now,
-        after: { type: created.type, breakKind: created.breakKind, note: created.note, occurredAt: created.occurredAt.toISOString(), workDate },
+        after: { type: created.type, breakKind: created.breakKind, note: created.note, occurredAt: created.occurredAt.toISOString(), workDate, ...(offsite ? { offsite: true } : {}) },
+        reason: offsite ? "Checked out from outside the office network while on field duty (company setting)" : null,
       },
       tx,
     );
@@ -300,6 +322,7 @@ export async function recomputeDay(ctx: TenantCtx, employeeId: string, workDate:
   if (comp.missedCheckout) flags.push("MISSED_CHECKOUT");
   if (comp.anomalies.length) flags.push("SEQUENCE_ANOMALY");
   if (lastCert && !certified) flags.push("RECERTIFY_REQUIRED");
+  if (effectiveEntries(entries).some((e) => e.offsite)) flags.push("OFFSITE_CHECKOUT");
 
   const data = {
     state,
@@ -363,7 +386,12 @@ export async function certifyDay(ctx: TenantCtx, raw: z.input<typeof certifyInpu
 
 /** Self, the employee's direct manager, or a company admin. */
 export async function assertCanViewEmployee(ctx: TenantCtx, employeeId: string) {
-  if (ctx.actor.employeeId === employeeId || ctx.actor.role === "COMPANY_ADMIN") return;
+  if (ctx.actor.employeeId === employeeId) return;
+  if (ctx.actor.role === "COMPANY_ADMIN") {
+    // Must exist in *this* tenant (forTenant scopes the lookup); otherwise behave as not found.
+    if (await ctx.db.employee.findUnique({ where: { id: employeeId }, select: { id: true } })) return;
+    throw new AppError("NOT_FOUND");
+  }
   if (ctx.actor.role === "MANAGER") {
     const emp = await ctx.db.employee.findUnique({ where: { id: employeeId }, select: { managerId: true } });
     if (emp && emp.managerId === ctx.actor.employeeId) return;

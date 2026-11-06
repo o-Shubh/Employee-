@@ -185,7 +185,12 @@ export async function updateEmployee(ctx: TenantCtx, id: string, raw: z.input<ty
     });
     await tx.user.update({
       where: { id: before.userId },
-      data: { role: input.role as Role, status: input.status === "ACTIVE" ? "ACTIVE" : "DISABLED" },
+      data: {
+        role: input.role as Role,
+        status: input.status === "ACTIVE" ? "ACTIVE" : "DISABLED",
+        // Deactivation or a role change ends existing sessions.
+        ...(before.user.status === "ACTIVE" && input.status !== "ACTIVE") || before.user.role !== input.role ? { authVersion: { increment: 1 } } : {},
+      },
     });
     await audit(ctx, {
       action: "employee.updated", entityType: "Employee", entityId: id, subjectEmployeeId: id, ip: env.ip, at: env.now,
@@ -206,7 +211,7 @@ export async function resetEmployeePassword(ctx: TenantCtx, id: string, env: Req
   const tempPassword = generateTempPassword();
   await ctx.db.user.update({
     where: { id: emp.userId },
-    data: { passwordHash: await hashPassword(tempPassword), mustChangePassword: true },
+    data: { passwordHash: await hashPassword(tempPassword), mustChangePassword: true, authVersion: { increment: 1 } },
   });
   await audit(ctx, { action: "user.password_reset", entityType: "User", entityId: emp.userId, subjectEmployeeId: id, ip: env.ip, at: env.now });
   return { tempPassword };
