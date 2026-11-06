@@ -1,0 +1,345 @@
+// WorkLog — Phase 1 schema
+//
+// Tenant isolation rules (enforced in three layers):
+//  1. Every tenant-owned table has `tenantId`.
+//  2. Cross-table references are COMPOSITE foreign keys on (tenantId, id), so the
+//     database itself rejects a row in tenant A that points at a row in tenant B.
+//  3. Application code reaches the DB only through `forTenant(tenantId)`
+//     (src/server/db/tenant.ts), which injects tenantId into every query.
+//
+// Append-only tables (LogEntry, AuditEvent, DayCertification, ConsentRecord) are
+// protected by Postgres triggers that reject UPDATE and DELETE (see migrations).
+//
+// All DateTime columns are timestamptz in UTC. `@db.Date` columns ("workDate")
+// hold the tenant-local calendar date.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Platform ─────────────────────────────
+
+model Plan {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  name            String
+  maxEmployees    Int
+  priceMonthlyInr Int      @default(0)
+  features        Json     @default("{}")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  tenants         Tenant[]
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model Tenant {
+  id                    String       @id @default(cuid())
+  name                  String
+  slug                  String       @unique
+  timezone              String       @default("Asia/Kolkata")
+  locale                String       @default("en")
+  status                TenantStatus @default(ACTIVE)
+  planId                String
+  plan                  Plan         @relation(fields: [planId], references: [id])
+  requirePhotoAtCheckIn Boolean      @default(false)
+  idleTimeoutMin        Int          @default(40)
+  photoRetentionDays    Int          @default(90)
+  grievanceContact      String?
+  createdAt             DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime     @updatedAt @db.Timestamptz(3)
+
+  users            User[]
+  consentRecords   ConsentRecord[]
+  departments      Department[]
+  officeLocations  OfficeLocation[]
+  employees        Employee[]
+  devices          Device[]
+  logEntries       LogEntry[]
+  dayRecords       DayRecord[]
+  dayCertifications DayCertification[]
+  auditEvents      AuditEvent[]
+}
+
+// ───────────────────────────── Identity ─────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  COMPANY_ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+model User {
+  id                 String     @id @default(cuid())
+  tenantId           String? // null only for SUPER_ADMIN
+  tenant             Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  email              String     @unique // stored lower-cased
+  passwordHash       String
+  role               Role
+  status             UserStatus @default(ACTIVE)
+  mustChangePassword Boolean    @default(true)
+  locale             String?
+  lastLoginAt        DateTime?  @db.Timestamptz(3)
+  createdAt          DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime   @updatedAt @db.Timestamptz(3)
+
+  employee       Employee?
+  consentRecords ConsentRecord[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+}
+
+/// Append-only. One row per acceptance of a given notice version (DPDP Act 2023, s.5/6).
+model ConsentRecord {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  userId        String
+  user          User     @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  noticeVersion String
+  acceptedAt    DateTime @default(now()) @db.Timestamptz(3)
+  ip            String?
+  userAgent     String?
+
+  @@index([tenantId, userId])
+}
+
+// ─────────────────────────── Organisation ───────────────────────────
+
+model Department {
+  id        String     @id @default(cuid())
+  tenantId  String
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  name      String
+  createdAt DateTime   @default(now()) @db.Timestamptz(3)
+  employees Employee[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, name])
+}
+
+model OfficeLocation {
+  id        String     @id @default(cuid())
+  tenantId  String
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  name      String
+  address   String?
+  /// Allowed client networks in CIDR notation, e.g. "203.0.113.0/24", "2001:db8::/48"
+  cidrs     String[]
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime   @updatedAt @db.Timestamptz(3)
+  employees Employee[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, name])
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Employee {
+  id               String          @id @default(cuid())
+  tenantId         String
+  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  userId           String          @unique
+  user             User            @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  employeeCode     String
+  fullName         String
+  designation      String?
+  departmentId     String?
+  department       Department?     @relation(fields: [tenantId, departmentId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  managerId        String?
+  manager          Employee?       @relation("ReportsTo", fields: [tenantId, managerId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  reports          Employee[]      @relation("ReportsTo")
+  officeLocationId String?
+  officeLocation   OfficeLocation? @relation(fields: [tenantId, officeLocationId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  joinedOn         DateTime?       @db.Date
+  status           EmployeeStatus  @default(ACTIVE)
+  createdAt        DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(3)
+
+  devices           Device[]
+  logEntries        LogEntry[]
+  dayRecords        DayRecord[]
+  dayCertifications DayCertification[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, userId])
+  @@unique([tenantId, employeeCode])
+  @@index([tenantId, managerId])
+  @@index([tenantId, departmentId])
+}
+
+enum DeviceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
+/// A registered office computer. The raw token lives only in the browser's
+/// httpOnly cookie; we store its SHA-256 hash.
+model Device {
+  id          String       @id @default(cuid())
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employeeId  String
+  employee    Employee     @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  label       String
+  tokenHash   String       @unique
+  userAgent   String?
+  requestIp   String?
+  status      DeviceStatus @default(PENDING)
+  requestedAt DateTime     @default(now()) @db.Timestamptz(3)
+  decidedById String? // User.id of the admin
+  decidedAt   DateTime?    @db.Timestamptz(3)
+  decisionNote String?
+  lastSeenAt  DateTime?    @db.Timestamptz(3)
+  lastIp      String?
+  logEntries  LogEntry[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, status])
+  @@index([tenantId, employeeId])
+}
+
+// ───────────────────────────── Logbook ─────────────────────────────
+
+enum LogType {
+  CHECK_IN
+  ON_DUTY
+  BREAK
+  FIELD_DUTY
+  CHECK_OUT
+  /// Correction that cancels the entry it supersedes (Phase 2)
+  VOID
+}
+
+enum BreakKind {
+  LUNCH
+  TEA
+  PERSONAL
+}
+
+enum EntrySource {
+  SELF
+  IDLE_PROMPT
+  CORRECTION
+  SYSTEM
+}
+
+/// Append-only. Never updated or deleted (DB trigger). Corrections insert a
+/// new row whose `supersedesId` points at the original.
+model LogEntry {
+  id                  String      @id @default(cuid())
+  tenantId            String
+  tenant              Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employeeId          String
+  employee            Employee    @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  /// Tenant-local date of the shift this entry belongs to (date of its CHECK_IN)
+  workDate            DateTime    @db.Date
+  type                LogType
+  breakKind           BreakKind?
+  note                String?     @db.VarChar(500)
+  /// When the status change happened (UTC)
+  occurredAt          DateTime    @db.Timestamptz(3)
+  /// When the row was written (UTC). Differs from occurredAt for back-dated entries.
+  recordedAt          DateTime    @default(now()) @db.Timestamptz(3)
+  source              EntrySource
+  createdById         String // User.id who wrote the row
+  supersedesId        String?
+  supersedes          LogEntry?   @relation("Supersedes", fields: [tenantId, supersedesId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  supersededBy        LogEntry[]  @relation("Supersedes")
+  correctionRequestId String?
+  ip                  String?
+  deviceId            String?
+  device              Device?     @relation(fields: [tenantId, deviceId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  photoKey            String?
+
+  @@unique([tenantId, id])
+  @@index([tenantId, employeeId, workDate])
+  @@index([tenantId, employeeId, occurredAt])
+  @@index([tenantId, workDate])
+}
+
+enum DayState {
+  OPEN
+  CLOSED
+  CERTIFIED
+  MISSED_CHECKOUT
+}
+
+/// Derived, rebuildable cache of a day's totals. Safe to recompute at any time.
+model DayRecord {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employeeId  String
+  employee    Employee  @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  workDate    DateTime  @db.Date
+  state       DayState
+  firstInAt   DateTime? @db.Timestamptz(3)
+  lastOutAt   DateTime? @db.Timestamptz(3)
+  workMin     Int       @default(0)
+  breakMin    Int       @default(0)
+  fieldMin    Int       @default(0)
+  flags       String[]
+  computedAt  DateTime  @db.Timestamptz(3)
+
+  @@unique([tenantId, employeeId, workDate])
+  @@index([tenantId, workDate])
+}
+
+/// Append-only. If the day's log changes later (correction / re-check-in), the
+/// logHash no longer matches and the day must be certified again.
+model DayCertification {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employeeId  String
+  employee    Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  workDate    DateTime @db.Date
+  summary     String   @db.VarChar(500)
+  logHash     String
+  certifiedAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, employeeId, workDate])
+}
+
+/// Append-only audit trail. tenantId is null only for platform (super admin) events.
+model AuditEvent {
+  id                String   @id @default(cuid())
+  tenantId          String?
+  tenant            Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actorUserId       String?
+  subjectEmployeeId String?
+  action            String
+  entityType        String
+  entityId          String?
+  before            Json?
+  after             Json?
+  reason            String?
+  ip                String?
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, subjectEmployeeId, createdAt])
+  @@index([tenantId, createdAt])
+}

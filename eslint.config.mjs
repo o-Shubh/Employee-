@@ -1,0 +1,31 @@
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+import { FlatCompat } from "@eslint/eslintrc";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const compat = new FlatCompat({ baseDirectory: __dirname });
+
+export default [
+  { ignores: [".next/**", "node_modules/**", "storage/**", "next-env.d.ts"] },
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    // Tenant isolation: the unscoped Prisma client may only be imported by an allow-list of files.
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: [
+      "src/server/db/**",
+      "src/server/auth/**",
+      "src/server/services/super-admin.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            { name: "@prisma/client", importNames: ["PrismaClient"], message: "Use ctx.db (tenant-scoped) instead." },
+            { name: "@/server/db/client", message: "Use ctx.db (tenant-scoped) via requireUser()/forTenant()." },
+          ],
+        },
+      ],
+    },
+  },
+];
